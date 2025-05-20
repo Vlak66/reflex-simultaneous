@@ -1,0 +1,52 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"c-cpp-flylint.enable": true,
+		"c-cpp-flylint.includePaths": [
+            "${workspaceFolder}/User/Inc",
+            "${workspaceFolder}/Audio/Inc",
+            "${workspaceFolder}/core/Core/Include",
+            "${workspaceFolder}/STM32_USB_Device_Library/Core/Inc",
+            "${workspaceFolder}/STM32_USB_Device_Library/Class/AUDIO_10/Inc",
+            "${workspaceFolder}/stm32f4xx-hal-driver/Inc",
+            "/usr/lib/arm-none-eabi/include"
+		],
+		"c-cpp-flylint.clang.defines": [
+			"STM32F446xx",
+			"USE_USB_FS",
+			"USE_USB_AUDIO_PLAYBACK"
+		],
+		"c-cpp-flylint.defines": [
+			"STM32F446xx",
+			"USE_USB_FS",
+			"USE_USB_AUDIO_PLAYBACK"
+		],
+		"c-cpp-flylint.clang.includePaths": [
+            "${workspaceFolder}/User/Inc",
+            "${workspaceFolder}/Audio/Inc",
+            "${workspaceFolder}/core/Core/Include",
+            "${workspaceFolder}/STM32_USB_Device_Library/Core/Inc",
+            "${workspaceFolder}/STM32_USB_Device_Library/Class/AUDIO_10/Inc",
+            "${workspaceFolder}/stm32f4xx-hal-driver/Inc",
+            "/usr/lib/arm-none-eabi/include"
+		],
+		"c-cpp-flylint.cppcheck.includePaths": [
+            "${workspaceFolder}/User/Inc",
+            "${workspaceFolder}/Audio/Inc",
+            "${workspaceFolder}/core/Core/Include",
+            "${workspaceFolder}/STM32_USB_Device_Library/Core/Inc",
+            "${workspaceFolder}/STM32_USB_Device_Library/Class/AUDIO_10/Inc",
+            "${workspaceFolder}/stm32f4xx-hal-driver/Inc",
+            "/usr/lib/arm-none-eabi/include"
+		],
+		"c-cpp-flylint.cppcheck.defines": [
+			"STM32F446xx",
+			"USE_USB_FS",
+			"USE_USB_AUDIO_PLAYBACK"
+		],
+	}
+}

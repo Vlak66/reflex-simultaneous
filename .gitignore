@@ -1,0 +1,10 @@
+# Директории сборки
+build/
+build/*
+
+# CMSIS библиотека
+core
+# CMSIS DEVICE библиотека
+cmsis-device-f4
+# HAL DRIVER библиотека
+stm32f4xx-hal-driver
