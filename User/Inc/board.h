@@ -87,7 +87,7 @@
 
 enum BCLK_FsRatioModes
 {
-  BCLK_Fs_RES_DEPENDENT,
+  BCLK_Fs_RES_DEPENDENT = 0,
   BCLK_Fs_FIXED,
 };
 
