@@ -1,26 +1,20 @@
 {
     "configurations": [
         {
-            "name": "ARM-none-eabi",
+            "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/User/Inc",
-                "${workspaceFolder}/Audio/Inc",
-                "${workspaceFolder}/core/Core/Include",
-                "${workspaceFolder}/STM32_USB_Device_Library/Core/Inc",
-                "${workspaceFolder}/STM32_USB_Device_Library/Class/AUDIO_10/Inc",
-                "${workspaceFolder}/stm32f4xx-hal-driver/Inc",
-                "/usr/lib/arm-none-eabi/include"
+                "${workspaceFolder}/**"
             ],
             "defines": [
-                "STM32F446xx",
-                "USE_USB_FS",
-                "USE_USB_AUDIO_PLAYBACK"
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
             ],
-            "compilerPath": "/usr/bin/arm-none-eabi-gcc",
-            "cStandard": "c11",
-            "cppStandard": "c++14",
-            "intelliSenseMode": "gcc-arm"
+            "windowsSdkVersion": "10.0.19041.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
         }
     ],
     "version": 4

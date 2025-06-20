@@ -24,11 +24,11 @@ static arm_fir_interpolate_instance_q15 fir_instance_R;
 // Максимальное количество отводов (taps) FIR-фильтра.
 // Используется для выделения памяти под буферы состояния фильтра.
 // Если ваши реальные фильтры будут иметь больше отводов, измените это значение.
-#define MAX_FIR_TAPS_TOTAL      120 // Предполагается, что максимальное количество отводов 64
+#define MAX_FIR_TAPS_TOTAL      120 // Предполагается, что максимальное количество отводов 120
 
 // Буферы состояния (history buffers) для FIR-фильтров левого и правого каналов.
 // Размер: (общее количество отводов + blockSize - 1)
-// Например, для MAX_FIR_TAPS_TOTAL=64 и DSP_UPSAMPLE_BLOCK_SIZE=256: (64 + 256 - 1) = 319 сэмплов.
+// Например, для MAX_FIR_TAPS_TOTAL=120 и DSP_UPSAMPLE_BLOCK_SIZE=256: (120 + 256 - 1) = 375 сэмплов.
 static q15_t fir_state_L[MAX_FIR_TAPS_TOTAL + DSP_UPSAMPLE_BLOCK_SIZE - 1] __attribute__((aligned(4)));
 static q15_t fir_state_R[MAX_FIR_TAPS_TOTAL + DSP_UPSAMPLE_BLOCK_SIZE - 1] __attribute__((aligned(4)));
 
@@ -145,7 +145,8 @@ void DSP_UpsampleInit(UpFactor_t factor, uint8_t algo_select)
         if (factor == UP_FACTOR_X2)
         {
             pCoeffs = fir_coeffs_algo1_x2;
-            numTaps = MAX_FIR_TAPS_TOTAL; // Для x2 используем 64 отвода
+            numTaps = sizeof(fir_coeffs_algo1_x2) / sizeof(q15_t); // Для x4 используем 60 отводов
+
         }
         else if (factor == UP_FACTOR_X4)
         {

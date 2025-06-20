@@ -8,6 +8,7 @@
 #include "SAI.h"
 #include "usb_audio_constants.h"
 #include "audio_configuration.h"
+#include "dsp_upsampling.h" // <-- НОВОЕ: Включение заголовка для DSP апсемплинга
 
 //****************************************************************************
 // Локальные переменные
@@ -18,6 +19,12 @@ static SPDIFRX_HandleTypeDef hspdif1;     // Дескриптор модуля S
 static SPDIF_RX mSPDIFRX;                 // Структура с данными модуля S/PDIF RX
 static DeviceMode mode = USB_MODE;        // Режим работы устройства
 static BufferState state = EmptyBuffer;   // Состояние буфера приема SPDIF сигнала
+
+// Буфер для хранения результата апсемплинга данных из SPDIF.
+// Размер должен быть достаточным для максимального коэффициента (x4).
+// RX_BUFFER_SIZE * 2 (слов uint16_t) * 4 (макс. коэф.) = RX_BUFFER_SIZE * 8
+static int16_t spdif_dsp_output_buffer[RX_BUFFER_SIZE * 8] __attribute__((aligned(4)));
+static int16_t spdif_dsp_input_buffer[RX_BUFFER_SIZE * 2] __attribute__((aligned(4)));
 
 // Внутренние операции (обычно не вызываются напрямую)
 static void SPDIF_RX_Init(uint32_t Freq_SPDiff_Clk);       // Инициализация модуля S/PDIF RX
@@ -48,19 +55,19 @@ void SPDIF_RX_Init(uint32_t Freq_SPDiff_Clk) {
     mSPDIFRX.phSPDIFRX = &hspdif1;
     mSPDIFRX.phTIM = &htim7;
     mSPDIFRX.Freq_SPDiff_Clk = Freq_SPDiff_Clk;
-    
+
     // Инициализация переменных состояния
     mSPDIFRX.CtCallBack = 0;
     mSPDIFRX.EtatSPDif = SPDIF_INACTIVE;
     mSPDIFRX.SPDiff_SampleRate = 0;
-    
+
     // Установка указателей на callback-функции
     hspdif1.RxHalfCpltCallback = OnReceiveHalfComplete;
     hspdif1.RxCpltCallback = OnReceiveComplete;
-    
+
     // Регистрация callback-функции истечения периода таймера
     HAL_TIM_RegisterCallback(&htim7, HAL_TIM_PERIOD_ELAPSED_CB_ID, PeriodElapsedCallback);
-    
+
     // Запуск таймера в режиме прерываний (периодические вызовы каждые 100 мс)
     HAL_TIM_Base_Start_IT(&htim7);
 }
@@ -101,9 +108,9 @@ eEtatSPDif SPDIF_RX_GetState() {
 static void SPDIF_RX_CalcSampleRate() {
     // Формула для вычисления частоты дискретизации:
     // SampleRate = (Частота тактового сигнала * 5) / (значение счетчика * 64)
-    uint32_t SampleRate = (mSPDIFRX.Freq_SPDiff_Clk * 5) / 
+    uint32_t SampleRate = (mSPDIFRX.Freq_SPDiff_Clk * 5) /
                          ((((mSPDIFRX.phSPDIFRX->Instance->SR) >> 16) & 0xEFFF) * 64);
-    
+
     // Определение ближайшей стандартной частоты дискретизации
     if (SampleRate > 190000) {
         mSPDIFRX.SPDiff_SampleRate = USB_AUDIO_CONFIG_FREQ_192_K;
@@ -132,10 +139,10 @@ void PeriodElapsedCallback(TIM_HandleTypeDef* phTIM) {
             __HAL_SPDIFRX_IDLE(mSPDIFRX.phSPDIFRX);
             mSPDIFRX.EtatSPDif = SPDIF_INACTIVE;
             break;
-            
+
         case SPDIF_INACTIVE:
             break;
-            
+
         case SPDIF_INIT:
             state = EmptyBuffer;
             SAI_MasterMute(1);
@@ -147,22 +154,46 @@ void PeriodElapsedCallback(TIM_HandleTypeDef* phTIM) {
             __HAL_SPDIFRX_SYNC(mSPDIFRX.phSPDIFRX);
             mSPDIFRX.EtatSPDif = SPDIF_SYNCHRO;
             break;
-            
+
         case SPDIF_SYNCHRO:
             // Проверка успешной синхронизации
             if (__HAL_SPDIFRX_GET_FLAG(mSPDIFRX.phSPDIFRX, SPDIFRX_FLAG_SYNCD)) {
                 // Запуск приема данных через DMA
                 if (HAL_SPDIFRX_ReceiveDataFlow_DMA(
-                    mSPDIFRX.phSPDIFRX, 
-                    (uint32_t*)mSPDIFRX.Buffer, 
+                    mSPDIFRX.phSPDIFRX,
+                    (uint32_t*)mSPDIFRX.Buffer,
                     RX_BUFFER_SIZE * 2) != HAL_OK)
                     {
                       mSPDIFRX.EtatSPDif = SPDIF_INIT;
                       break;
                     }
                 SPDIF_RX_CalcSampleRate(); // Определение частоты дискретизации
-                // Меняем частоту дискретизации
-                AudioChangeFrequency(mSPDIFRX.SPDiff_SampleRate);
+
+                // <-- ИЗМЕНЕНО: Логика смены частоты с учетом апсемплинга
+                uint32_t host_frequency = mSPDIFRX.SPDiff_SampleRate;
+                uint32_t target_sai_frequency = host_frequency; // По умолчанию равна частоте хоста
+
+                if (IsUpsamplingEnabled()) // Если апсемплинг включен
+                {
+                    UpFactor_t upsample_factor = UP_FACTOR_X1;
+                    if (host_frequency == USB_AUDIO_CONFIG_FREQ_44_1_K || host_frequency == USB_AUDIO_CONFIG_FREQ_48_K)
+                    {
+                        upsample_factor = UP_FACTOR_X4;
+                    }
+                    else if (host_frequency == USB_AUDIO_CONFIG_FREQ_88_2_K || host_frequency == USB_AUDIO_CONFIG_FREQ_96_K)
+                    {
+                        upsample_factor = UP_FACTOR_X2;
+                    }
+
+                    if(upsample_factor > UP_FACTOR_X1)
+                    {
+                        target_sai_frequency = host_frequency * upsample_factor;
+                        DSP_UpsampleInit(upsample_factor, GetUpsampleAlgo()); // Инициализируем DSP
+                    }
+                }
+
+                // Меняем частоту дискретизации SAI на целевую
+                AudioChangeFrequency(target_sai_frequency);
                 mSPDIFRX.EtatSPDif = SPDIF_RUN;
             }
              else {
@@ -170,11 +201,11 @@ void PeriodElapsedCallback(TIM_HandleTypeDef* phTIM) {
                 mSPDIFRX.EtatSPDif = SPDIF_INIT;
             }
             break;
-            
+
         case SPDIF_RUN:
             {
                 // Проверка наличия ошибок
-                uint32_t Err = (mSPDIFRX.phSPDIFRX->Instance->SR) & 
+                uint32_t Err = (mSPDIFRX.phSPDIFRX->Instance->SR) &
                               (SPDIFRX_FLAG_TERR | SPDIFRX_FLAG_FERR | SPDIFRX_FLAG_SERR);
                 if (Err != 0) {
                   // Обнаружена ошибка - переход к повторной инициализации
@@ -396,21 +427,80 @@ DeviceMode getMode() {
 
 void SAITransferCompleteHandler() {
   HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8);
+
+  int32_t* p_source_buffer_32bit = NULL;
+
+  // 1. Определяем, какая половина SPDIF-буфера готова
   switch (state) {
     case EmptyBuffer:
-      break;
+      return; // Нечего делать
     case FirstFilled:
-      // Первый буфер заполнен, отправляет его на I2S
-      SAI_MasterDMAPrepareTx((uint16_t *)mSPDIFRX.Buffer, RX_BUFFER_SIZE);
-      SAI_MasterDMAEnable();
+      p_source_buffer_32bit = mSPDIFRX.Buffer;
       break;
     case SecondFilled:
-      // Второй буфер заполнен, отправляет его на I2S
-      SAI_MasterDMAPrepareTx((uint16_t *)&mSPDIFRX.Buffer[RX_BUFFER_SIZE], RX_BUFFER_SIZE);
-      SAI_MasterDMAEnable();
+      p_source_buffer_32bit = &mSPDIFRX.Buffer[RX_BUFFER_SIZE];
       break;
   }
+
+  if (p_source_buffer_32bit)
+  {
+    uint16_t* p_data_to_sai = NULL;
+    uint32_t size_to_sai_words = 0;
+
+    if (IsUpsamplingEnabled())
+    {
+      uint32_t host_frequency = mSPDIFRX.SPDiff_SampleRate;
+      UpFactor_t upsample_factor = (host_frequency < 50000) ? UP_FACTOR_X4 :
+                                   ((host_frequency < 100000) ? UP_FACTOR_X2 : UP_FACTOR_X1);
+
+      if (upsample_factor > UP_FACTOR_X1)
+      {
+        // --- Апсемплинг ---
+
+        // 2. Извлекаем 16-битные аудиоданные из 32-битных SPDIF-фреймов
+        for (int i = 0; i < RX_BUFFER_SIZE * 2; i++) {
+            // Предполагаем, что полезные данные находятся в старших битах 32-битного слова.
+            // Сдвигаем их вправо. Это нужно проверить по документации на SPDIFRX STM32.
+            // Также важно, как упакованы стереоданные.
+            // Для простоты, предположим, что каждый 32-битный int - это ОДИН моно-сэмпл (L, R, L, R...).
+            // Ваш DMA настроен на 32-битные слова, RX_BUFFER_SIZE=192.
+            // Это 192 сэмпла. Если стерео, то 96 стерео-пар.
+            // Пусть RX_BUFFER_SIZE - это количество стерео-сэмплов.
+            spdif_dsp_input_buffer[i] = (int16_t)(p_source_buffer_32bit[i] >> 8);
+        }
+
+        // 3. Выполняем DSP-обработку
+        uint32_t input_stereo_samples = RX_BUFFER_SIZE; // Количество стерео-сэмплов
+        DSP_UpsampleBlock(spdif_dsp_input_buffer, input_stereo_samples, spdif_dsp_output_buffer);
+
+        // 4. Готовим данные для SAI
+        p_data_to_sai = (uint16_t*)spdif_dsp_output_buffer;
+        size_to_sai_words = input_stereo_samples * upsample_factor * 2; // *2 для стерео
+      }
+      else
+      {
+        // --- Прямой проброс для высоких частот (176.4/192к) ---
+        p_data_to_sai = (uint16_t*)p_source_buffer_32bit;
+        size_to_sai_words = RX_BUFFER_SIZE * 2; // 32-битные слова -> 16-битные
+      }
+    }
+    else
+    {
+      // --- Прямой проброс, если апсемплинг выключен ---
+      p_data_to_sai = (uint16_t*)p_source_buffer_32bit;
+      size_to_sai_words = RX_BUFFER_SIZE * 2;
+    }
+
+    // 5. Отправляем данные в SAI
+    if (p_data_to_sai)
+    {
+        SAI_MasterDMAPrepareTx(p_data_to_sai, size_to_sai_words);
+        SAI_MasterDMAEnable();
+    }
+  }
 }
+
+
 
 // Инициализация светодиода
 // Используется для отладки, что сигнал отправляется на выход I2S

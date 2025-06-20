@@ -85,7 +85,7 @@ void USB_I2S_Init(void)
     AudioConfig_Init();
     OUTClk_Init();
     InitSPDIF();
-    AudioOutInit(USB_AUDIO_CONFIG_FREQ_44_1_K, CONFIG_RES_BIT_24);
+    AudioOutInit(USB_AUDIO_CONFIG_FREQ_44_1_K, CONFIG_RES_BIT_16);
     SAI_MasterMute(1);
   }
 }
