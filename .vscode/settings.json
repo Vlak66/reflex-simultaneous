@@ -1,7 +1,8 @@
 {
     "files.associations": {
         "audio_configuration.h": "c",
-        "usb_audio.h": "c"
+        "usb_audio.h": "c",
+        "dsp_upsampling.h": "c"
     },
     "makefile.configureOnOpen": false
 }

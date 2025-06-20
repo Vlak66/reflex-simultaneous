@@ -84,6 +84,9 @@
 #define   SYNC_MODE_2_MASK                 (1 << 0)
 #define   SYNC_MODE_MASK                   (SYNC_MODE_1_MASK | SYNC_MODE_2_MASK)
 
+// UPSAMPLING
+#define UPSAMPLING_ENABLE_PIN              CONFIG_2_PIN    // Pin to enable/disable upsampling (LOW for enabled)
+#define UPSAMPLING_ALGORITHM_SELECT_PIN    CONFIG_3_PIN    // Pin to select upsampling algorithm (LOW for Algo0, HIGH for Algo1)
 
 enum BCLK_FsRatioModes
 {

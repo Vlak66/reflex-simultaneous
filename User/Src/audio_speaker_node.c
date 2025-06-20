@@ -41,7 +41,7 @@
 #include "audio_configuration.h"
 #include "usb_audio.h"
 #include "board.h"
-
+#include "dsp_upsampling.h" // <-- НОВОЕ: Включение заголовка для DSP апсемплинга
 
 /* Private defines -----------------------------------------------------------*/
 #define SPEAKER_CMD_STOP                1
@@ -53,7 +53,9 @@
     (VOLUME_SPEAKER_MAX_DB_256 - VOLUME_SPEAKER_MIN_DB_256)))
 
 /* alt buffer max size */
-#define SPEAKER_ALT_BUFFER_SIZE ((USB_AUDIO_CONFIG_PLAY_FREQ_MAX+999)/1000)*2*4*2
+/*#define SPEAKER_ALT_BUFFER_SIZE ((USB_AUDIO_CONFIG_PLAY_FREQ_MAX+999)/1000)*2*4*2 старое*/
+#define IN_CHUNK_SAMPLES_STEREO         256 // Количество стерео-сэмплов, обрабатываемых за раз
+#define SPEAKER_ALT_BUFFER_SIZE         (IN_CHUNK_SAMPLES_STEREO * 4 * 2 * sizeof(int16_t)) // Макс. размер после x4 апсемплинга
 
 #ifdef DEBUG_SPEAKER_NODE
 #define SPEAKER_DEBUG_BUFFER_SIZE 1000
@@ -69,6 +71,7 @@ static void    AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker);
 static void AUDIO_DoPadding_24_32(AUDIO_CircularBuffer_t *buff_src,  uint8_t *data_dest ,  int size);
 static int8_t  AUDIO_SpeakerStartReadCount( uint32_t node_handle);
 static uint16_t AUDIO_SpeakerGetLastReadCount( uint32_t node_handle);
+static void ProcessAudio(void);
 
 /* Приватные типы -----------------------------------------------------------*/
 #ifdef DEBUG_SPEAKER_NODE
@@ -81,6 +84,14 @@ typedef struct
   uint8_t* data;
 } AUDIO_SpeakerNodeBufferStats_t;
 #endif /* DEBUG_SPEAKER_NODE*/
+
+// <-- НОВЫЕ: Буферы для DSP обработки
+// dspIn: буфер для данных, взятых из кольцевого USB-буфера перед апсемплингом.
+// Размер: IN_CHUNK_SAMPLES_STEREO * 2 (для стерео) * sizeof(int16_t)
+static int16_t dsp_input_buffer[IN_CHUNK_SAMPLES_STEREO * 2] __attribute__((aligned(4)));
+// dspOut: буфер для данных после апсемплинга.
+// Размер: IN_CHUNK_SAMPLES_STEREO * 4 (для макс. x4) * 2 (для стерео) * sizeof(int16_t)
+static int16_t dsp_output_buffer[IN_CHUNK_SAMPLES_STEREO * 4 * 2] __attribute__((aligned(4)));
 
 /* Приватные макросы ------------------------------------------------------------*/
 /* Внешние переменные --------------------------------------------------------*/
@@ -137,7 +148,22 @@ static  int AUDIO_SpeakerDebugStats_count =0;
 
   SetAudioConfigDependedFuncs(speaker);
 
-  AudioOutInit(speaker->node.audio_description->frequency, audio_description->resolution<<3);
+  // <-- ИЗМЕНЕНО: Передаем в AudioOutInit целевую частоту с учетом апсемплинга
+  uint32_t initial_frequency = speaker->node.audio_description->frequency;
+  if (IsUpsamplingEnabled())
+  {
+      // Определяем коэффициент апсемплинга для начальной частоты
+      // (полагаем, что начальная частота будет 44.1/48/88.2/96кГц)
+      if (initial_frequency < USB_AUDIO_CONFIG_FREQ_88_2_K) // 44.1/48 кГц
+      {
+          initial_frequency *= UP_FACTOR_X4;
+      }
+      else // 88.2/96 кГц
+      {
+          initial_frequency *= UP_FACTOR_X2;
+      }
+  }
+  AudioOutInit(initial_frequency, audio_description->resolution << 3);
   ExtPowerDisable();
 
 /*
@@ -146,9 +172,25 @@ static  int AUDIO_SpeakerDebugStats_count =0;
                      speaker->node.audio_description->frequency, audio_description->resolution<<3 );
 */
 
+
+ // <-- ИЗМЕНЕНО: На начальной стадии заполняем буфер для воспроизведения нулями.
+  // Если апсемплинг включен, то размер буфера должен соответствовать выходу апсемплинга.
+  uint16_t initial_play_data_size = AUDIO_SpeakerHandler->specific.injection_size;
+  if (IsUpsamplingEnabled()) {
+      // Это просто заглушка нулями, поэтому здесь не принципиально применять DSP,
+      // но для корректного размера выходного буфера нужно учесть upsampling
+      // Предполагаем, что specific.injection_size уже отражает апсемплинг
+      // после вызова AUDIO_SpeakerInitInjectionsParams
+  }
+  speaker->SpeakerPlay((uint16_t *)speaker->specific.data,
+                       initial_play_data_size, // Используем скорректированный размер
+                       speaker->node.audio_description->resolution);
+
+/* <-- ИЗМЕНЕНО:
   speaker->SpeakerPlay((uint16_t *)speaker->specific.data,
                        speaker->specific.data_size,
-                       speaker->node.audio_description->resolution);
+                       speaker->node.audio_description->resolution);*/
+
   //BSP_AUDIO_OUT_Play((uint16_t *)speaker->specific.data ,speaker->specific.data_size );
 
   //начиная с версии 1.6
@@ -203,6 +245,54 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
       return;
     }
 
+// <-- ИЗМЕНЕНО: Логика смены частоты с учетом апсемплинга
+    if (AUDIO_SpeakerHandler->specific.cmd & SPEAKER_CMD_CHANGE_FREQUENCE)
+    {
+      AUDIO_SpeakerHandler->node.state = AUDIO_NODE_STOPPED;
+      AUDIO_SpeakerInitInjectionsParams(AUDIO_SpeakerHandler); // Обновить параметры инъекций
+      AUDIO_SpeakerHandler->injection_44_count = 0;
+
+      uint32_t host_frequency = AUDIO_SpeakerHandler->node.audio_description->frequency;
+      uint32_t target_sai_frequency = host_frequency; // По умолчанию равна частоте хоста
+
+      if (IsUpsamplingEnabled()) // Если апсемплинг включен
+      {
+          if (host_frequency == USB_AUDIO_CONFIG_FREQ_44_1_K)
+          {
+              target_sai_frequency = USB_AUDIO_CONFIG_FREQ_176_4_K; // 44100 -> 176400 (x4)
+              DSP_UpsampleInit(UP_FACTOR_X4, GetUpsampleAlgo()); // Инициализируем DSP
+          }
+          else if (host_frequency == USB_AUDIO_CONFIG_FREQ_48_K)
+          {
+              target_sai_frequency = USB_AUDIO_CONFIG_FREQ_192_K; // 48000 -> 192000 (x4)
+              DSP_UpsampleInit(UP_FACTOR_X4, GetUpsampleAlgo()); // Инициализируем DSP
+          }
+          else if (host_frequency == USB_AUDIO_CONFIG_FREQ_88_2_K)
+          {
+              target_sai_frequency = USB_AUDIO_CONFIG_FREQ_176_4_K; // 88200 -> 176400 (x2)
+              DSP_UpsampleInit(UP_FACTOR_X2, GetUpsampleAlgo()); // Инициализируем DSP
+          }
+          else if (host_frequency == USB_AUDIO_CONFIG_FREQ_96_K)
+          {
+              target_sai_frequency = USB_AUDIO_CONFIG_FREQ_192_K; // 96000 -> 192000 (x2)
+              DSP_UpsampleInit(UP_FACTOR_X2, GetUpsampleAlgo()); // Инициализируем DSP
+          }
+          // Для частот 176.4k и 192k апсемплинг не нужен, они уже на максимуме,
+          // поэтому target_sai_frequency останется равным host_frequency.
+          // DSP_UpsampleInit(UP_FACTOR_X1, 0); // Инициализация на UP_FACTOR_X1 (без апсемплинга)
+      } else {
+          // Если апсемплинг выключен, инициализируем DSP как "без апсемплинга" (UP_FACTOR_X1)
+          // DSP_UpsampleInit(UP_FACTOR_X1, 0); // Эта функция может не требовать вызова, если нет апсемплинга
+                                             // или если она всегда вызывается с фактическим фактором >1
+      }
+      AudioChangeFrequency(target_sai_frequency); // Вызываем с целевой частотой для SAI
+      AUDIO_SpeakerHandler->specific.cmd &= ~SPEAKER_CMD_CHANGE_FREQUENCE;
+    }
+
+
+
+    /*
+
     if (AUDIO_SpeakerHandler->specific.cmd &
         SPEAKER_CMD_CHANGE_FREQUENCE)
     {
@@ -214,6 +304,8 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
       AUDIO_SpeakerHandler->specific.cmd &=
         ~SPEAKER_CMD_CHANGE_FREQUENCE;
     }
+*/
+
 
     if (AUDIO_SpeakerHandler->specific.cmd & SPEAKER_CMD_STOP)
     {
@@ -240,6 +332,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
         ~SPEAKER_CMD_CHANGE_RESOLUTION;
     }
 
+    
     AUDIO_SpeakerHandler->SpeakerPlay(
       (uint16_t *)AUDIO_SpeakerHandler->specific.data,
       (uint16_t)AUDIO_SpeakerHandler->specific.data_size,
@@ -258,6 +351,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
         AUDIO_PACKET_PLAYED,
         (AUDIO_Node_t *)AUDIO_SpeakerHandler,
         AUDIO_SpeakerHandler->node.session_handle);
+        
 
       /* подготовить следующий размер для инъекции */
       if (AUDIO_SpeakerHandler->node.audio_description->resolution

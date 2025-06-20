@@ -17,6 +17,11 @@ static uint8_t SyncMode = 0; // Режим синхронизации
 static uint8_t BclkFsRatioMode = BCLK_Fs_RES_DEPENDENT; // Соотношение BCLK к Fs
 static uint8_t ChannelsPairs = 1; // Пары каналов
 
+// UPSAMPLING
+static uint8_t UpsamplingEnabled = 0;    // Флаг включения апсемплинга // UpsamplingEnabled g_is_upsampling_enabled
+static uint8_t UpsamplingSelect = 0;   // Выбор алгоритма апсемплинга UpsamplingSelect g_upsampling_algo_select
+
+
 void SetAudioConfigDependedFuncs(AUDIO_SpeakerNode_t *speaker)
 {
   // Установка функции воспроизведения
@@ -251,6 +256,30 @@ void AudioConfig_Init(void)
   if ((BCLK_Fs_RATIO_GPIO->IDR & (1 << BCLK_Fs_RATIO_PIN)) != (1 << BCLK_Fs_RATIO_PIN))
     // Установка фиксированного соотношения BCLK к Fs
     BclkFsRatioMode = BCLK_Fs_FIXED;
+
+// UPSAMPLING ---- ЧТЕНИЕ СОСТОЯНИЯ КОНФИГУРАЦИОННЫХ ПИНОВ ДЛЯ АПСЕМПЛИНГА ----
+  // Проверка UPSAMPLING_ENABLE_PIN (CONFIG_2_PIN)
+  // Если пин замкнут на землю (LOW), включаем апсемплинг
+  if ((CONFIG_GPIO->IDR & (1 << UPSAMPLING_ENABLE_PIN)) != (1 << UPSAMPLING_ENABLE_PIN))
+  {
+      UpsamplingEnabled = 1;
+  }
+  else
+  {
+      UpsamplingEnabled = 0; // Сбрасываем флаг, если джампер снят
+  }
+
+  // UPSAMPLING ---- Проверка UPSAMPLING_ALGORITHM_SELECT_PIN (CONFIG_3_PIN)
+  // Если пин замкнут на землю (LOW), выбираем алгоритм 0; если HIGH, выбираем алгоритм 1
+  if ((CONFIG_GPIO->IDR & (1 << UPSAMPLING_ALGORITHM_SELECT_PIN)) != (1 << UPSAMPLING_ALGORITHM_SELECT_PIN))
+  {
+      UpsamplingSelect = 0; // Алгоритм 0
+  }
+  else
+  {
+      UpsamplingSelect = 1; // Алгоритм 1
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -367,3 +396,15 @@ void ConfigGPIOs_Init(void)
 
 }
 
+
+// Функция для проверки, включен ли апсемплинг
+uint8_t IsUpsamplingEnabled(void)
+{
+    return UpsamplingEnabled;
+}
+
+// Функция для получения выбранного алгоритма апсемплинга
+uint8_t GetUpsampleAlgo(void)
+{
+    return UpsamplingSelect;
+}
