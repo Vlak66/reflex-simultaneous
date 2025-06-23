@@ -253,10 +253,9 @@ void OnReceiveComplete(SPDIFRX_HandleTypeDef *hspdif) {
 void OnReceiveHalfComplete(SPDIFRX_HandleTypeDef *hspdif) {
     // Проверяем, что это первый запуск после синхронизации
     if (state == EmptyBuffer) {
-      // Запускаем работы I2S
-      SAI_MasterDMAPrepareTx((uint16_t *)mSPDIFRX.Buffer, RX_BUFFER_SIZE);
-      SAI_MasterDMAEnable();
-      SAI_MasterMute(0);
+      // --- Обрабатываем и отправляем ПЕРВЫЙ пакет данных ---
+      SAITransferCompleteHandler(); // Вызываем основной обработчик для первой половины буфера
+      SAI_MasterMute(0); // Включаем звук ПОСЛЕ отправки первого корректного пакета
       HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
     }
     // Устанавливаем состояние, что первый буфер заполнен
@@ -429,11 +428,13 @@ void SAITransferCompleteHandler() {
   HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8);
 
   int32_t* p_source_buffer_32bit = NULL;
+  uint16_t* p_data_to_sai = NULL;
+  uint32_t size_to_sai_words = 0;
 
-  // 1. Определяем, какая половина SPDIF-буфера готова
+  // 1. Определяем, какую половину SPDIF-буфера обрабатывать
   switch (state) {
     case EmptyBuffer:
-      return; // Нечего делать
+      return; // Нечего делать (этот случай не должен происходить здесь)
     case FirstFilled:
       p_source_buffer_32bit = mSPDIFRX.Buffer;
       break;
@@ -444,9 +445,6 @@ void SAITransferCompleteHandler() {
 
   if (p_source_buffer_32bit)
   {
-    uint16_t* p_data_to_sai = NULL;
-    uint32_t size_to_sai_words = 0;
-
     if (IsUpsamplingEnabled())
     {
       uint32_t host_frequency = mSPDIFRX.SPDiff_SampleRate;
@@ -455,43 +453,55 @@ void SAITransferCompleteHandler() {
 
       if (upsample_factor > UP_FACTOR_X1)
       {
-        // --- Апсемплинг ---
+        // --- ВЕТКА АПСЕМПЛИНГА ---
 
-        // 2. Извлекаем 16-битные аудиоданные из 32-битных SPDIF-фреймов
-        for (int i = 0; i < RX_BUFFER_SIZE * 2; i++) {
-            // Предполагаем, что полезные данные находятся в старших битах 32-битного слова.
-            // Сдвигаем их вправо. Это нужно проверить по документации на SPDIFRX STM32.
-            // Также важно, как упакованы стереоданные.
-            // Для простоты, предположим, что каждый 32-битный int - это ОДИН моно-сэмпл (L, R, L, R...).
-            // Ваш DMA настроен на 32-битные слова, RX_BUFFER_SIZE=192.
-            // Это 192 сэмпла. Если стерео, то 96 стерео-пар.
-            // Пусть RX_BUFFER_SIZE - это количество стерео-сэмплов.
-            spdif_dsp_input_buffer[i] = (int16_t)(p_source_buffer_32bit[i] >> 8);
+        // 2. Корректное извлечение 16-битных аудиоданных из 32-битных SPDIF-фреймов
+        // DMA принимает 32-битные слова, где каждый int32_t - это один моно-сэмпл (L, R, L, R...).
+        // RX_BUFFER_SIZE = 192, т.е. 192 слова в одной половине буфера.
+        // Это 96 стерео-пар.
+        uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2; // 96
+
+        for (int i = 0; i < input_stereo_samples; i++) {
+            // Извлекаем левый канал, сдвигаем и конвертируем в int16_t
+            spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
+            // Извлекаем правый канал
+            spdif_dsp_input_buffer[2 * i + 1] = (int16_t)(p_source_buffer_32bit[2 * i + 1] >> 8);
         }
 
         // 3. Выполняем DSP-обработку
-        uint32_t input_stereo_samples = RX_BUFFER_SIZE; // Количество стерео-сэмплов
         DSP_UpsampleBlock(spdif_dsp_input_buffer, input_stereo_samples, spdif_dsp_output_buffer);
 
-        // 4. Готовим данные для SAI
+        // 4. Готовим указатель и размер для SAI
         p_data_to_sai = (uint16_t*)spdif_dsp_output_buffer;
         size_to_sai_words = input_stereo_samples * upsample_factor * 2; // *2 для стерео
       }
       else
       {
-        // --- Прямой проброс для высоких частот (176.4/192к) ---
-        p_data_to_sai = (uint16_t*)p_source_buffer_32bit;
-        size_to_sai_words = RX_BUFFER_SIZE * 2; // 32-битные слова -> 16-битные
+        // --- ВЕТКА ПРЯМОГО ПРОБРОСА (Высокие частоты) ---
+        // ПРИМЕЧАНИЕ: Здесь мы также должны конвертировать 32-бит в 16-бит,
+        // так как SAI теперь всегда работает в 16-битном режиме.
+        uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2;
+        for (int i = 0; i < input_stereo_samples; i++) {
+            spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
+            spdif_dsp_input_buffer[2 * i + 1] = (int16_t)(p_source_buffer_32bit[2 * i + 1] >> 8);
+        }
+        p_data_to_sai = (uint16_t*)spdif_dsp_input_buffer;
+        size_to_sai_words = input_stereo_samples * 2;
       }
     }
     else
     {
-      // --- Прямой проброс, если апсемплинг выключен ---
-      p_data_to_sai = (uint16_t*)p_source_buffer_32bit;
-      size_to_sai_words = RX_BUFFER_SIZE * 2;
+      // --- ВЕТКА ПРЯМОГО ПРОБРОСА (Апсемплинг выключен) ---
+      uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2;
+      for (int i = 0; i < input_stereo_samples; i++) {
+          spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
+          spdif_dsp_input_buffer[2 * i + 1] = (int16_t)(p_source_buffer_32bit[2 * i + 1] >> 8);
+      }
+      p_data_to_sai = (uint16_t*)spdif_dsp_input_buffer;
+      size_to_sai_words = input_stereo_samples * 2;
     }
 
-    // 5. Отправляем данные в SAI
+    // 5. Отправляем подготовленные данные в SAI
     if (p_data_to_sai)
     {
         SAI_MasterDMAPrepareTx(p_data_to_sai, size_to_sai_words);
@@ -499,6 +509,7 @@ void SAITransferCompleteHandler() {
     }
   }
 }
+
 
 
 

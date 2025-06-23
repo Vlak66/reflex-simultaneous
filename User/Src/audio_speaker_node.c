@@ -521,37 +521,6 @@ static void  AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker)
   speaker->specific.double_buff = 0;
   speaker->specific.offset = 0;
 
-
-#if USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K
-  // <-- ИЗМЕНЕНО: Этот блок теперь должен быть адаптирован под апсемплинг
-  // или его логика может быть упрощена, если upsampling берет на себя все.
-  // Пока оставляем, но имеем в виду, что он может конфликтовать или быть избыточным.
-  // Например, если Fs=44.1k и upsampling x4 -> 176.4k, то 44_count логика должна
-  // относиться к исходной частоте, но injection_size уже будет для 176.4k.
-  // Более простой подход: packet_length всегда относится к исходной Fs.
-  // injection_size - к Fs после апсемплинга.
-
-  if((speaker->node.audio_description->frequency == USB_AUDIO_CONFIG_FREQ_44_1_K)
-  || (speaker->node.audio_description->frequency == USB_AUDIO_CONFIG_FREQ_88_2_K)
-  || (speaker->node.audio_description->frequency == USB_AUDIO_CONFIG_FREQ_176_4_K))
-  {
-    speaker->specific.double_buff = 1; // Включаем двойной буфер
-    // Устанавливаем максимальную длину пакета для 44.1 кГц
-    // Эти расчеты относятся к ORIGINAL_PACKET_LENGTH, а не к final injection_size
-    if (speaker->node.audio_description->frequency != USB_AUDIO_CONFIG_FREQ_176_4_K)
-      speaker->packet_length_max_44_1 = original_packet_length + \
-        AUDIO_SAMPLE_LENGTH(speaker->node.audio_description);
-    else
-      speaker->packet_length_max_44_1 = 712; // Это значение может быть устаревшим
-
-    // Устанавливаем размер половины альтернативного буфера
-    // Это значение должно быть актуализировано с учетом апсемплинга
-    // Для 16-битных данных, alt_buf_half_size должен быть равен injection_size
-    speaker->specific.alt_buf_half_size = speaker->specific.injection_size;
-
-  }
-#endif /* USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K*/
-
   // Обнуляем альтернативный буфер (теперь SPEAKER_ALT_BUFFER_SIZE)
   memset(speaker->specific.alt_buffer, 0, SPEAKER_ALT_BUFFER_SIZE);
   speaker->specific.data = speaker->specific.alt_buffer; // Начинаем инъекцию данных
@@ -680,13 +649,28 @@ static void ProcessAudio(void)
         bytes_to_read = actual_samples_to_read * AUDIO_SpeakerHandler->node.audio_description->channels_count * sizeof(int16_t);
     }
     
-    // Здесь должна быть безопасная логика копирования из кольцевого буфера
-    // Это место, где данные из AUDIO_SpeakerHandler->buf (круговой буфер)
-    // должны быть скопированы в dsp_input_buffer.
-    // Пример (упрощенный, без учета обхода конца буфера):
-    memcpy(dsp_input_buffer,
-           AUDIO_SpeakerHandler->buf->data + AUDIO_SpeakerHandler->buf->rd_ptr,
-           bytes_to_read);
+    
+      uint32_t bytes_till_end = AUDIO_SpeakerHandler->buf->size - AUDIO_SpeakerHandler->buf->rd_ptr;
+
+      if (bytes_till_end < bytes_to_read)
+      {
+        // Данные разделены на две части: одна в конце, другая в начале
+        // Копируем первую часть (до конца буфера)
+        memcpy(dsp_input_buffer, 
+              AUDIO_SpeakerHandler->buf->data + AUDIO_SpeakerHandler->buf->rd_ptr, 
+              bytes_till_end);
+        // Копируем вторую часть (с начала буфера)
+        memcpy((uint8_t*)dsp_input_buffer + bytes_till_end, 
+              AUDIO_SpeakerHandler->buf->data, 
+              bytes_to_read - bytes_till_end);
+      }
+      else
+      {
+        // Данные лежат сплошным блоком
+        memcpy(dsp_input_buffer, 
+              AUDIO_SpeakerHandler->buf->data + AUDIO_SpeakerHandler->buf->rd_ptr, 
+              bytes_to_read);
+      }
 
 
     if (upsample_factor > UP_FACTOR_X1)
