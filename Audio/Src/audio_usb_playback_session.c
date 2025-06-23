@@ -258,14 +258,12 @@ static int8_t  USB_AudioPlaybackSessionCallback(AUDIO_SessionEvent_t  event,
   return 0;
 }
 
-
 /**
   * @brief  USB_AudioPlaybackSetAudioStreamingInterfaceAlternateSetting
-  *         Установка альтернативного режима интерфейса потокового аудио.
-  *         Вызывается модулем класса USB Audio.
-  * @param  alternate(IN): номер альтернативного режима
+  *         Вызывается, когда хост выбирает альтернативную настройку для интерфейса потоковой передачи аудио.
+  * @param  alternate(IN): номер альтернативной настройки
   * @param  session_handle(IN): дескриптор сессии
-  * @retval : 0 при отсутствии ошибок
+  * @retval 0 в случае отсутствия ошибок
   */
 static int8_t  USB_AudioPlaybackSetAudioStreamingInterfaceAlternateSetting( uint8_t alternate , uint32_t session_handle)
 {
@@ -273,30 +271,33 @@ static int8_t  USB_AudioPlaybackSetAudioStreamingInterfaceAlternateSetting( uint
 
    play_session = (AUDIO_USBSession_t*)session_handle;
 
+  // Если хост выбрал alternate = 0, это означает "остановить поток".
   if(alternate == 0)
   {
     if( play_session->alternate != 0)
     {
-       USB_AudioPlaybackSessionStop(play_session); // Останавливаем воспроизведение
-       play_session->alternate = 0; // Переходим в режим по умолчанию
+       USB_AudioPlaybackSessionStop(play_session);
+       play_session->alternate = 0;
     }
   }
-  else
+  else // Если хост выбрал любую другую настройку (в нашем случае это может быть только 16-битная)
   {
+    // Запускаем сессию, только если она была ранее остановлена
     if( play_session->alternate == 0)
     {
-      switch(alternate)
-      {
-        case ALTERNATE_SETTING_16_BIT:
-        default:
-          play_session->session.node_list->audio_description->resolution = CONFIG_RES_BYTE_16;
-        break;
-      }
+      /* --- Упрощенная логика --- */
+      // Поскольку мы поддерживаем только один 16-битный режим,
+      // нет необходимости в операторе switch. Мы точно знаем, что нужно делать.
 
-      UpdateInputNodePackLength(); // Обновляем длину пакета
-      AUDIO_SpeakerChangeResolution((uint32_t)&PlaybackSpeakerOutputNode); // Меняем разрешение динамика
+      // Принудительно устанавливаем разрешение в 16 бит.
+      play_session->session.node_list->audio_description->resolution = CONFIG_RES_BYTE_16;
+      
+      // Обновляем параметры и запускаем узел воспроизведения
+      UpdateInputNodePackLength();
+      AUDIO_SpeakerChangeResolution((uint32_t)&PlaybackSpeakerOutputNode);
+      USB_AudioPlaybackSessionStart(play_session);
 
-      USB_AudioPlaybackSessionStart(play_session); // Запускаем сессию с новыми параметрами
+      // Сохраняем текущее состояние
       play_session->alternate = alternate;
     }
   }

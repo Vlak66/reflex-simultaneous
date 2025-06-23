@@ -77,13 +77,6 @@ typedef struct
   AUDIO_CircularBuffer_t*   buf;             /* Буфер аудио-данных */
   uint16_t                  packet_length;   /* Максимальная длина пакета */
   
-  /* Дополнительные поля для частоты 44.1 кГц */
-#if USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K
-  uint16_t               packet_length_max_44_1; /* Макс. длина пакета при 44.1 кГц */
-  uint8_t                injection_44_count;     /* Счётчик для вставки 9 пакетов по 44 семпла */
-  uint8_t                injection_45_pos;       /* Позиция пакета из 45 семплов */
-#endif /* USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K */
-
   /* Функции обратного вызова для работы с динамиком */
   int8_t                (*SpeakerDeInit)  (uint32_t); /* Деинициализация */
   int8_t                (*SpeakerStart)   (AUDIO_CircularBuffer_t*, uint32_t);

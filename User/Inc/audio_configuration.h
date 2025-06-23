@@ -26,7 +26,6 @@
  * @brief Альтернативные режимы настройки аудио интерфейса по битности
  */
 #define ALTERNATE_SETTING_16_BIT               1
-#define ALTERNATE_SETTING_24_BIT               2
 
 /**
  * @brief Конфигурации разрядности аудиосигнала
