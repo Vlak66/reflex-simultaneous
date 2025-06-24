@@ -241,7 +241,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
     {
       AUDIO_SpeakerHandler->node.state = AUDIO_NODE_STOPPED;
       AUDIO_SpeakerInitInjectionsParams(AUDIO_SpeakerHandler); // Обновить параметры инъекций
-      AUDIO_SpeakerHandler->injection_44_count = 0;
 
       uint32_t host_frequency = AUDIO_SpeakerHandler->node.audio_description->frequency;
       uint32_t target_sai_frequency = host_frequency; // По умолчанию равна частоте хоста
@@ -469,8 +468,7 @@ static void  AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker)
 
   // <-- ИЗМЕНЕНО: Корректируем packet_length и injection_size
   // Это оригинальный размер пакета, который мы читаем из USB буфера.
-  uint32_t original_packet_length = speaker->packet_length;
-  uint32_t original_injection_size;
+   uint32_t original_injection_size;
 
   // Вычисляем размер инъекции на основе частоты, количества каналов и разрешения
   original_injection_size = AUDIO_MS_PACKET_SIZE( \

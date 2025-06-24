@@ -4,11 +4,10 @@ OBJ_DIR     := $(BUILD_DIR_DEBUG)/obj
 OBJ_HAL_DIR     := $(BUILD_DIR_DEBUG)/obj/hal
 
 # Загружаемые репозитории
-# stm32f4xx-hal-driver        Основные HAL драйвера для STM32F4 от ST
+# stm32f4xx-hal-driver 		 Основные HAL драйвера для STM32F4 от ST
 # cmsis                      CMSIS (Cortex Microcontroller Software Interface Standard) от ST
-#                            Стандартный интерфейс для микроконтроллеров
-# cmsis-device-f4             Cпециальная часть CMSIS для F4 семейства микроконтроллеров от ST
-
+# 							 Стандартный интерфейс для микроконтроллеров
+# cmsis-device-f4			 Cпециальная часть CMSIS для F4 семейства микроконтроллеров от ST
 
 # Исходные файлы
 # Audio/Src/:
@@ -35,7 +34,6 @@ OBJ_HAL_DIR     := $(BUILD_DIR_DEBUG)/obj/hal
 #   usbd_desc.c              - Дескрипторы USB устройства
 
 
-# Исходные файлы
 C_SOURCES = \
 	Audio/Src/audio_usb_nodes.c \
 	Audio/Src/audio_usb_playback_session.c \
@@ -53,9 +51,7 @@ C_SOURCES = \
 	User/Src/usb_audio_descriptors.c \
 	User/Src/usbd_conf.c \
 	User/Src/usbd_desc.c \
-	User/Src/SPDIF_RX.c \
-	User/Src/dsp_upsampling.c \
-	$(CMSIS_DSP_SOURCES) # <-- ДОБАВЛЕНО
+	User/Src/SPDIF_RX.c
 
 HAL_DRIVER_SOURCES = \
 	stm32f4xx-hal-driver/Src/stm32f4xx_hal.c \
@@ -70,13 +66,6 @@ HAL_DRIVER_SOURCES = \
 	stm32f4xx-hal-driver/Src/stm32f4xx_hal_tim_ex.c \
 	stm32f4xx-hal-driver/Src/stm32f4xx_hal_dma.c \
 	stm32f4xx-hal-driver/Src/stm32f4xx_hal_rcc_ex.c
-
-# ДОБАВЛЕНО: Исходные файлы CMSIS-DSP
-CMSIS_DSP_SOURCES = \
-    cmsis-dsp/Source/CommonTables/arm_common_tables.c \
-    cmsis-dsp/Source/CommonTables/arm_const_structs.c \
-    cmsis-dsp/Source/FilteringFunctions/arm_fir_interpolate_init_q15.c \
-    cmsis-dsp/Source/FilteringFunctions/arm_fir_interpolate_q15.c
 
 ASM_SOURCES = \
 	cmsis-device-f4/Source/Templates/gcc/startup_stm32f446xx.s
@@ -116,8 +105,7 @@ CFLAGS_HAL = $(CPUFLAGS) -O2 -g -std=c11 \
 DEFS = \
 	-DSTM32F446xx \
 	-DUSE_USB_FS \
-	-DUSE_USB_AUDIO_PLAYBACK \
-	-DARM_MATH_CM4 # <-- Это уже было, отлично!
+	-DUSE_USB_AUDIO_PLAYBACK
 
 INCLUDES = \
 	-IAudio/Inc \
@@ -126,18 +114,19 @@ INCLUDES = \
     -Istm32f4xx-hal-driver/Inc \
     -Icmsis-device-f4/Include/ \
     -Icore/Core/Include \
-    -IUser/Inc \
-    -Icmsis-dsp/Include # <-- ДОБАВЛЕНО
+    -IUser/Inc
+
 
 LDFLAGS = $(CPUFLAGS) -Wl,--gc-sections -specs=nano.specs -specs=nosys.specs -Tstm32f446.ld -lc -g
 
 # Имя проекта
 PROJECT_NAME := REFLEX
 
-.PHONY: all debug clean clean-repo update cmsis cmsis-device hal cmsis-dsp # <-- ДОБАВЛЕНО: cmsis-dsp
-all: debug
+.PHONY: all debug clean clean-repo update cmsis cmsis-device hal
+all: cmsis hal cmsis-device
+	@$(MAKE) debug
 
-debug: cmsis hal cmsis-device cmsis-dsp $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).elf $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).hex $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).bin
+debug: $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).elf $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).hex $(BUILD_DIR_DEBUG)/$(PROJECT_NAME).bin
 
 ###############################################################################
 # Связывание
@@ -201,13 +190,23 @@ hal: stm32f4xx-hal-driver/.git
 # Зависимость для DEVICE_CMSIS - проверяет наличие библиотеки
 cmsis-device: cmsis-device-f4/.git
 
-cmsis-dsp: cmsis-dsp/.git
-
-# ДОБАВИТЬ ЭТО ПРАВИЛО:
+# Загрузка только необходимой части CMSIS библиотеки
+# 1. Создаем директорию core и переходим в нее
+# 2. Инициализируем git репозиторий
+# 3. Добавляем удаленный репозиторий STM
+# 4. Включаем sparse-checkout для выборочной загрузки
+# 5. Указываем загружать только папку Core
+# 6. Загружаем только последний коммит (--depth 1) для экономии трафика
 core/.git:
-	@echo "Загрузка cmsis-core с официального репозитория..." && \
-	git clone -q --depth 1 https://github.com/STMicroelectronics/cmsis-core.git core
-
+	@mkdir -p core && cd core && \
+	git init -q && \
+	git remote add origin https://github.com/STMicroelectronics/cmsis-core && \
+	git config extensions.partialClone true && \
+	git config core.sparseCheckout true && \
+	git sparse-checkout set --no-cone Core && \
+	echo "Загрузка cmsis с официального репозитория..." && \
+	git fetch --depth 1 --filter=blob:none origin master -q && \
+	git checkout master -q
 
 stm32f4xx-hal-driver/.git:
 	@echo "Загрузка hal v1.7.6 с официального репозитория..." && \
@@ -217,15 +216,6 @@ cmsis-device-f4/.git:
 	@echo "Загрузка cmsis device с официального репозитория..." && \
 	git clone -q --depth 1 https://github.com/STMicroelectronics/cmsis-device-f4.git
 
-# ДОБАВЛЕНО: Загрузка CMSIS_5 с официального репозитория
-cmsis/.git:
-	@echo "Загрузка CMSIS_5 с официального репозитория..." && \
-	git clone -q --depth 1 https://github.com/ARM-software/CMSIS_5.git cmsis
-
-# НОВОЕ ПРАВИЛО: Загрузка CMSIS-DSP в отдельную папку
-cmsis-dsp/.git:
-	@echo "Загрузка CMSIS-DSP с официального репозитория..." && \
-	git clone -q --depth 1 https://github.com/ARM-software/CMSIS-DSP.git cmsis-dsp
 
 # Прошивка микроконтроллера через DFU
 # -a 0 - альтернативный интерфейс
@@ -246,8 +236,6 @@ clean-repo:
 	@rm -rf core
 	@rm -rf stm32f4xx-hal-driver
 	@rm -rf cmsis-device-f4
-	@rm -rf cmsis # <-- ДОБАВЛЕНО
-	@rm -rf cmsis-dsp # <-- ДОБАВЛЕНО
 
 ###############################################################################
 # Зависимости
@@ -256,4 +244,4 @@ clean-repo:
 -include $(wildcard $(OBJ_DIR)/*.d)
 -include $(wildcard $(OBJ_HAL_DIR)/*.d)
 
-.NOTPARALLEL: cmsis hal cmsis-device cmsis-dsp # <-- ДОБАВЛЕНО: cmsis-dsp
+.NOTPARALLEL: cmsis hal cmsis-device

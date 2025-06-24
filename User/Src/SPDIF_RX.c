@@ -461,7 +461,7 @@ void SAITransferCompleteHandler() {
         // Это 96 стерео-пар.
         uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2; // 96
 
-        for (int i = 0; i < input_stereo_samples; i++) {
+        for (uint32_t i = 0; i < input_stereo_samples; i++) {
             // Извлекаем левый канал, сдвигаем и конвертируем в int16_t
             spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
             // Извлекаем правый канал
@@ -481,7 +481,7 @@ void SAITransferCompleteHandler() {
         // ПРИМЕЧАНИЕ: Здесь мы также должны конвертировать 32-бит в 16-бит,
         // так как SAI теперь всегда работает в 16-битном режиме.
         uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2;
-        for (int i = 0; i < input_stereo_samples; i++) {
+        for (uint32_t i = 0; i < input_stereo_samples; i++) {
             spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
             spdif_dsp_input_buffer[2 * i + 1] = (int16_t)(p_source_buffer_32bit[2 * i + 1] >> 8);
         }
@@ -493,7 +493,7 @@ void SAITransferCompleteHandler() {
     {
       // --- ВЕТКА ПРЯМОГО ПРОБРОСА (Апсемплинг выключен) ---
       uint32_t input_stereo_samples = RX_BUFFER_SIZE / 2;
-      for (int i = 0; i < input_stereo_samples; i++) {
+      for (uint32_t i = 0; i < input_stereo_samples; i++) {
           spdif_dsp_input_buffer[2 * i]     = (int16_t)(p_source_buffer_32bit[2 * i] >> 8);
           spdif_dsp_input_buffer[2 * i + 1] = (int16_t)(p_source_buffer_32bit[2 * i + 1] >> 8);
       }
