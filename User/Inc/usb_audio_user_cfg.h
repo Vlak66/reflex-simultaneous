@@ -40,8 +40,8 @@
 
 /* Разрешение аудио */
 /* Поддерживается 16/24 бита (другие разрешения требуют доработки) */
-#define USB_AUDIO_CONFIG_PLAY_RES_BIT     24  // Разрешение: 24 бита на семпл
-#define USB_AUDIO_CONFIG_PLAY_RES_BYTE    3   // Размер в байтах (24 бита = 3 байта)
+#define USB_AUDIO_CONFIG_PLAY_RES_BIT     16  // Разрешение: 24 бита на семпл
+#define USB_AUDIO_CONFIG_PLAY_RES_BYTE    2   // Размер в байтах (24 бита = 3 байта)
 
 /* Поддерживаемые частоты дискретизации (1 - включить, 0 - отключить) */
 #define USB_AUDIO_CONFIG_PLAY_USE_FREQ_192_K   1  // 192 кГц
@@ -50,9 +50,6 @@
 #define USB_AUDIO_CONFIG_PLAY_USE_FREQ_88_2_K  1  // 88.2 кГц
 #define USB_AUDIO_CONFIG_PLAY_USE_FREQ_48_K    1  // 48 кГц
 #define USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K  1  // 44.1 кГц
-#define USB_AUDIO_CONFIG_PLAY_USE_FREQ_32_K    0  // 32 кГц
-#define USB_AUDIO_CONFIG_PLAY_USE_FREQ_16_K    0  // 16 кГц
-#define USB_AUDIO_CONFIG_PLAY_USE_FREQ_8_K     0  // 8 кГц
 
 #define USE_AUDIO_TIMER_VOLUME_CTRL 0  // Управление громкостью через таймер (0 - отключено)
 #endif /* USE_USB_AUDIO_PLAYBACK */

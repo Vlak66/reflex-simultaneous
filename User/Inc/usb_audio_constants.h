@@ -32,9 +32,6 @@
 #define USB_AUDIO_CONFIG_FREQ_88_2_K  88200   // Половина частоты 176.4 кГц
 #define USB_AUDIO_CONFIG_FREQ_48_K    48000   // Стандарт для DVD и цифрового TV
 #define USB_AUDIO_CONFIG_FREQ_44_1_K  44100   // CD-качество аудио
-#define USB_AUDIO_CONFIG_FREQ_32_K    32000   // Частота FM-радио
-#define USB_AUDIO_CONFIG_FREQ_16_K    16000   // Голосовая связь (низкое качество)
-#define USB_AUDIO_CONFIG_FREQ_8_K     8000    // Минимальная частота для речи
 
 /* Экспортируемые типы и функции --------------------------------------------*/
 // В данном файле типы и функции не объявлены.

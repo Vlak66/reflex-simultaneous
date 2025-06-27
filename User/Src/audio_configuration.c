@@ -329,7 +329,7 @@ void ConfigGPIOs_Init(void)
     // Проверка CONFIG_4_PIN
     ((CONFIG_GPIO->PUPDR & (3 << (2 * CONFIG_4_PIN))) != (1 << (2 * CONFIG_4_PIN))) ||
     // Проверка CONFIG_5_PIN
-    ((CONFIG_GPIO->PUPDR & (3 << (2 * CONFIG_4_PIN))) != (1 << (2 * CONFIG_4_PIN))) ||
+    ((CONFIG_GPIO->PUPDR & (3 << (2 * CONFIG_5_PIN))) != (1 << (2 * CONFIG_5_PIN))) ||
     // Проверка CONFIG_6_PIN
     ((CONFIG_GPIO->PUPDR & (3 << (2 * CONFIG_6_PIN))) != (1 << (2 * CONFIG_6_PIN)))
   );
