@@ -90,13 +90,10 @@
 #define USBD_AUDIO_REQ_GET_STAT                            0xFF
 /* Управление Feature Unit */
 #define USBD_AUDIO_CONTROL_FEATURE_UNIT_MUTE          0x01
-#define USBD_AUDIO_CONTROL_FEATURE_UNIT_VOLUME        0x02
   /* Селекторы управления Feature Unit */
 #define USBD_AUDIO_FU_MUTE_CONTROL                                    0x01
-#define USBD_AUDIO_FU_VOLUME_CONTROL                                  0x02
 /* определение управляющих элементов конечной точки */
 #define USBD_AUDIO_CONTROL_EP_SAMPL_FREQ               0x01 /* Управление частотой дискретизации */
-#define USBD_AUDIO_CONTROL_EP_PITCH                   0x02 /* Управление тоном/высотой звука */
 /* Конфигурация текущей реализации аудиокласса */
 #define USBD_AUDIO_AS_INTERFACE_COUNT 1//0x02
 #define USBD_AUDIO_MAX_IN_EP  2 //5 including EP0
@@ -150,11 +147,6 @@ typedef struct
 {
    int8_t  (*GetMute)    (uint16_t /*канал*/, uint8_t* /*mute*/, uint32_t /* приватные данные */);
    int8_t  (*SetMute)    (uint16_t /*канал*/, uint8_t /*mute*/, uint32_t /* приватные данные */);
-   int8_t  (*SetCurVolume)    (uint16_t /*канал*/, uint16_t /*громкость*/, uint32_t /* приватные данные */);
-   int8_t  (*GetCurVolume)    (uint16_t /*канал*/, uint16_t* /*громкость*/, uint32_t /* приватные данные */);
-   uint16_t MaxVolume;
-   uint16_t MinVolume;
-   uint16_t ResVolume;
    int8_t  (*GetStatus)     (uint32_t /*приватные данные */);
 }USBD_AUDIO_FeatureControlCallbacksTypeDef;
 /* Колбэки модуля управления, вызываются при запросах Get_Cur, Set_Cur и т.д. */

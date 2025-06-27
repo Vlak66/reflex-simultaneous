@@ -674,28 +674,7 @@ uint8_t  USBD_AUDIO_DeInit (USBD_HandleTypeDef *pdev,
                }
                break;
              }
- 
-           case USBD_AUDIO_CONTROL_FEATURE_UNIT_VOLUME:
-             {
-               /* TODO: Проверить длину данных и соответствие запросу */
-               switch(haudio->last_control.req)
-               {
-                 case USBD_AUDIO_REQ_SET_CUR:
-                   if(feature_control->SetCurVolume)
-                   {
-                     tmpdata = (uint16_t*) &(haudio->last_control.data);
-                     feature_control->SetCurVolume(LOBYTE(haudio->last_control.wValue),
-                                                  *tmpdata,
-                                                  ctl->private_data);
-                   }
-                   break;
- 
-                 default :
-                   USBD_error_handler();
-               }
-               break;
-             }
- 
+
            default :
              USBD_error_handler();
          }
@@ -1000,42 +979,6 @@ uint8_t  USBD_AUDIO_DeInit (USBD_HandleTypeDef *pdev,
  
                        break;
                       }
-                   case USBD_AUDIO_CONTROL_FEATURE_UNIT_VOLUME:
-                      {
- 
-                         /* Это SET-запрос */
-                         /* @TODO проверить длину и типы запросов */
- 
-                        tmpdata =  (uint16_t*) &(haudio->last_control.data);
-                         switch(req->bRequest)
-                         {
-                         case USBD_AUDIO_REQ_GET_CUR:
-                               tmpdata = 0;
-                               if(feature_control->GetCurVolume)
-                               {
-                                   feature_control->GetCurVolume(LOBYTE(req->wValue),
-                                                                 (uint16_t*)haudio->last_control.data, ctl->private_data);
-                               }
-                               break;
- 
-                         case USBD_AUDIO_REQ_GET_MIN:
-                               tmpdata = (uint16_t*) &(feature_control->MinVolume);
-                               break;
-                         case USBD_AUDIO_REQ_GET_MAX:
-                              tmpdata = (uint16_t*) &(feature_control->MaxVolume);
-                               break;
- 
-                        case USBD_AUDIO_REQ_GET_RES:
-                               tmpdata = (uint16_t*) &(feature_control->ResVolume);
-                               break;
-                         default :
-                                 USBD_error_handler();
-                         }
-                          /* Отправляем запрашиваемое значение громкости */
-                                 USBD_CtlSendData (pdev, (uint8_t*) tmpdata,2);
-                          break;
-                        }
- 
                  default :
                            USBD_error_handler();
                  }

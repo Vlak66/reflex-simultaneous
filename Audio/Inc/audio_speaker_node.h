@@ -36,12 +36,7 @@
 #define OUTPUT_DEVICE_AUTO                    ((uint16_t)0x0004)
 #define CODEC_PDWN_SW                 2
 
-/* Экспортируемые константы -------------------------------------------------*/
-/* VOLUME_SPEAKER_RES_DB_256 — разрешение регулировки громкости в децибелах, см. спецификацию UAC */
-#define VOLUME_SPEAKER_RES_DB_256       128     /* 0.5 дБ * 256 = 128 */
 #define VOLUME_SPEAKER_DEFAULT_DB_256   0       /* По умолчанию 0 дБ */
-#define VOLUME_SPEAKER_MAX_DB_256       1536    /* Максимум +6 дБ == 6*256 = 1536 */
-#define VOLUME_SPEAKER_MIN_DB_256       -6400   /* Минимум -25 дБ == -25*256 = -6400 */
 
 /* Настройки управления громкостью через таймер */
 #if USE_AUDIO_TIMER_VOLUME_CTRL

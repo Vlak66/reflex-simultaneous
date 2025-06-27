@@ -112,10 +112,7 @@ static uint32_t PlaybackSynchroEstimatedCodecFrequency = 0;
    play_session->session.node_list = (AUDIO_Node_t*)&PlaybackUSBInputNode;
   /* инициализируем узел управления громкостью */
   controller_defaults.audio_description = &PlaybackAudioDescription;
-    /* установите здесь значения по умолчанию для громкости динамика */
-  controller_defaults.max_volume = VOLUME_SPEAKER_MAX_DB_256;
-  controller_defaults.min_volume = VOLUME_SPEAKER_MIN_DB_256;
-  controller_defaults.res_volume = VOLUME_SPEAKER_RES_DB_256;
+
   USB_AudioStreamingFeatureUnitInit( controls_desc,  &controller_defaults,  CONFIG_UNIT_FEATURE_ID, (uint32_t)&PlaybackFeatureUnitNode);
   (*control_count)++;
   PlaybackUSBInputNode.node.next = (AUDIO_Node_t*)&PlaybackFeatureUnitNode;
@@ -164,7 +161,6 @@ static int8_t  USB_AudioPlaybackSessionStart(AUDIO_USBSession_t*  play_session)
     PlaybackUSBInputNode.IOStart(& play_session->buffer,   play_session->buffer.size/2,  (uint32_t)&PlaybackUSBInputNode);
     commands.private_data = (uint32_t)&PlaybackSpeakerOutputNode;
     commands.SetMute = PlaybackSpeakerOutputNode.SpeakerMute;
-    commands.SetCurrentVolume = PlaybackSpeakerOutputNode.SpeakerSetVolume;
     PlaybackFeatureUnitNode.CFStart(&commands,(uint32_t)&PlaybackFeatureUnitNode);
     play_session->session.state = AUDIO_SESSION_STARTED;
   }

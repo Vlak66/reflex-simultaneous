@@ -48,9 +48,6 @@
 #define SPEAKER_CMD_EXIT                2
 #define SPEAKER_CMD_CHANGE_FREQUENCE    4
 #define SPEAKER_CMD_CHANGE_RESOLUTION   (1 << 3)
-#define VOLUME_DB_256_TO_PERCENT(volume_db_256) \
-    ((uint8_t)((((int)(volume_db_256) - VOLUME_SPEAKER_MIN_DB_256) * 100) / \
-    (VOLUME_SPEAKER_MAX_DB_256 - VOLUME_SPEAKER_MIN_DB_256)))
 
 /* alt buffer max size */
 #define SPEAKER_ALT_BUFFER_SIZE ((USB_AUDIO_CONFIG_PLAY_FREQ_MAX+999)/1000)*2*4*2
@@ -139,11 +136,6 @@ static  int AUDIO_SpeakerDebugStats_count =0;
   AudioOutInit(speaker->node.audio_description->frequency, audio_description->resolution<<3);
   ExtPowerDisable();
 
-/*
-  BSP_AUDIO_OUT_Init_Ext(OUTPUT_DEVICE_AUTO,
-                     VOLUME_DB_256_TO_PERCENT(VOLUME_SPEAKER_DEFAULT_DB_256),
-                     speaker->node.audio_description->frequency, audio_description->resolution<<3 );
-*/
 
   speaker->SpeakerPlay((uint16_t *)speaker->specific.data,
                        speaker->specific.data_size,
@@ -519,7 +511,6 @@ static int8_t  AUDIO_SpeakerMute( uint16_t channel_number,  uint8_t mute , uint3
   */
 static int8_t  AUDIO_SpeakerSetVolume( uint16_t channel_number,  int volume_db_256 ,  uint32_t node_handle)
 {
-
   return 0;
 }
 

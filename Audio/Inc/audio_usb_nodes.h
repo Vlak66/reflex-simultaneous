@@ -86,16 +86,12 @@ AUDIO_USBInputOutputNode_t;
 typedef struct
 {
   int8_t  (*SetMute)    (uint16_t, uint8_t, uint32_t);     /* Установка состояния mute */
-  int8_t  (*SetCurrentVolume)    (uint16_t, int, uint32_t);/* Установка текущего уровня громкости */
   uint32_t private_data;                                   /* Данные контекста */
 } AUDIO_USBFeatureUnitCommands_t;
 
 /* Структура значений по умолчанию для модуля управления громкостью */
 typedef struct
-{
-  int                       max_volume; /* Максимальный уровень громкости в формате USB */
-  int                       min_volume; /* Минимальный уровень громкости в формате USB */
-  int                       res_volume; /* Разрешение регулировки громкости */
+{  
   AUDIO_Description_t       *audio_description; /* Указатель на описание аудио (частота, разрядность и т.д.) */
 } AUDIO_USBFeatureUnitDefaults_t;
 
@@ -115,10 +111,6 @@ typedef struct
   int8_t  (*CFSetMute)    (uint16_t, uint8_t, uint32_t);
 }
 AUDIO_USB_CF_NodeTypeDef;
-
-/* Макросы преобразования уровней громкости между форматами */
-#define VOLUME_USB_TO_DB_256(v_db, v_usb) (v_db) = (v_usb <= 0x7FFF)? v_usb : -(((int)0xFFFF - v_usb)+1)
-#define VOLUME_DB_256_TO_USB(v_usb, v_db) (v_usb) = (v_db >= 0)? v_db : ((int)0xFFFF + v_db) +1
 
 /* Макрос для расчёта максимальной длины пакета с учётом коррекции частоты */
 #define AUDIO_MAX_PACKET_WITH_FEEDBACK_LENGTH(audio_desc) \

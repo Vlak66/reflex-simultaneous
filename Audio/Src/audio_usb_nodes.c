@@ -69,8 +69,6 @@ static int8_t USB_AudioStreamingFeatureUnitStart(AUDIO_USBFeatureUnitCommands_t*
 static int8_t USB_AudioStreamingFeatureUnitStop( uint32_t node_handle);
 static int8_t USB_AudioStreamingFeatureUnitGetMute(uint16_t channel,uint8_t* mute, uint32_t node_handle);
 static int8_t USB_AudioStreamingFeatureUnitSetMute(uint16_t channel,uint8_t mute, uint32_t node_handle);
-static int8_t USB_AudioStreamingFeatureUnitSetCurVolume(uint16_t channel, uint16_t volume, uint32_t node_handle);
-static int8_t USB_AudioStreamingFeatureUnitGetCurVolume(uint16_t channel, uint16_t* volume, uint32_t node_handle);
 #if USE_USB_AUDIO_CLASS_10
 static int8_t USB_AudioStreamingFeatureUnitGetStatus(uint32_t node_handle);
 #endif /*USE_USB_AUDIO_CLASS_10*/
@@ -526,16 +524,11 @@ static int8_t  USB_AudioStreamingInputOutputGetState(uint32_t node_handle)
 #endif /*USE_USB_AUDIO_CLASS_10*/
   cf->usb_control_callbacks.GetMute = USB_AudioStreamingFeatureUnitGetMute;
   cf->usb_control_callbacks.SetMute = USB_AudioStreamingFeatureUnitSetMute;
-  cf->usb_control_callbacks.GetCurVolume = USB_AudioStreamingFeatureUnitGetCurVolume;
-  cf->usb_control_callbacks.SetCurVolume = USB_AudioStreamingFeatureUnitSetCurVolume;
-  VOLUME_DB_256_TO_USB(cf->usb_control_callbacks.MaxVolume, audio_defaults->max_volume);
-  VOLUME_DB_256_TO_USB(cf->usb_control_callbacks.MinVolume, audio_defaults->min_volume);
-  cf->usb_control_callbacks.ResVolume = audio_defaults->res_volume;
   cf->node.audio_description=audio_defaults->audio_description;
   /* заполнение структуры, используемой модулем USB Audio Class */
   usb_control_feature->id = unit_id;
   usb_control_feature->control_req_map = 0;
-  usb_control_feature->control_selector_map = USBD_AUDIO_FU_MUTE_CONTROL|USBD_AUDIO_FU_VOLUME_CONTROL;
+  usb_control_feature->control_selector_map = USBD_AUDIO_FU_MUTE_CONTROL;
   usb_control_feature->type = USBD_AUDIO_CS_AC_SUBTYPE_FEATURE_UNIT;
   usb_control_feature->Callbacks.feature_control = &cf->usb_control_callbacks;
   usb_control_feature->private_data = node_handle;
@@ -567,12 +560,6 @@ static int8_t USB_AudioStreamingFeatureUnitStart(AUDIO_USBFeatureUnitCommands_t*
   cf = (AUDIO_USB_CF_NodeTypeDef*)node_handle;
   cf->control_cbks = *commands;
   cf->node.state = AUDIO_NODE_STARTED;
-  if(cf->control_cbks.SetCurrentVolume)
-  {
-    cf->control_cbks.SetCurrentVolume(0,
-                                      cf->node.audio_description->audio_volume_db_256,
-                                      cf->control_cbks.private_data);
-  }
   return 0;
 }
 /**
@@ -623,42 +610,8 @@ static int8_t USB_AudioStreamingFeatureUnitSetMute(uint16_t channel, uint8_t mut
   }
   return 0;
 }
-/**
-  * @brief  USB_AudioStreamingFeatureUnitGetCurVolume
-  *         Получает текущее значение громкости
-  * @param  channel:            номер канала, 0 для главного канала (в данный момент поддерживается только этот вариант)
-  * @param  volume:             возвращаемое значение громкости
-  * @param  node_handle:        дескриптор узла Feature, узел должен быть инициализирован
-  * @retval  0 при отсутствии ошибок
-  */
-static int8_t USB_AudioStreamingFeatureUnitGetCurVolume(uint16_t channel, uint16_t* volume, uint32_t node_handle)
-{
-  /**@TODO добавить поддержку нескольких каналов */
-  VOLUME_DB_256_TO_USB(*volume, ((AUDIO_Node_t*)node_handle)->audio_description->audio_volume_db_256);
-  return 0;
-}
-/**
-  * @brief  USB_AudioStreamingFeatureUnitSetCurVolume
-  *         Устанавливает текущее значение громкости
-  * @param  channel:            номер канала, 0 для главного канала (в данный момент поддерживается только этот вариант)
-  * @param  volume:             новое значение громкости
-  * @param  node_handle:        дескриптор узла Feature, узел должен быть инициализирован
-  * @retval  0 при отсутствии ошибок
-  */
-static int8_t USB_AudioStreamingFeatureUnitSetCurVolume(uint16_t channel, uint16_t volume, uint32_t node_handle)
-{
-  AUDIO_USB_CF_NodeTypeDef* cf;
-  cf = (AUDIO_USB_CF_NodeTypeDef*)node_handle;
-  /**@TODO добавить поддержку нескольких каналов */
-  VOLUME_USB_TO_DB_256(cf->node.audio_description->audio_volume_db_256, volume);
-  if((cf->node.state == AUDIO_NODE_STARTED)&&(cf->control_cbks.SetCurrentVolume))
-  {
-    cf->control_cbks.SetCurrentVolume(channel,
-                                      cf->node.audio_description->audio_volume_db_256,
-                                      cf->control_cbks.private_data);
-  }
-  return 0;
-}
+
+
 #if USE_USB_AUDIO_CLASS_10
 /**
   * @brief  USB_AudioStreamingFeatureUnitGetStatus
