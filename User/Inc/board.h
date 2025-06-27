@@ -37,12 +37,12 @@
 
 // конфигурационные выводы
 #define   CONFIG_GPIO                      GPIOC
-#define   CONFIG_1_PIN                     3  // Обозначение на плате 6
-#define   CONFIG_2_PIN                     2  // Обозначение на плате 7
+#define   CONFIG_1_PIN                     3  // Обозначение на плате 6 // включение SPDIF 
+#define   CONFIG_2_PIN                     2  // Обозначение на плате 7 
 #define   CONFIG_3_PIN                     1  // Обозначение на плате 8
 #define   CONFIG_4_PIN                     15 // Обозначение на плате 9
-#define   CONFIG_5_PIN                     14 // Обозначение на плате 10
-#define   CONFIG_6_PIN                     13 // Обозначение на плате 11
+#define   CONFIG_5_PIN                     14 // Обозначение на плате 10 // ведущий с внешней синхронизацией
+#define   CONFIG_6_PIN                     13 // Обозначение на плате 11 // ведомый
 
 // выводы отображающие частоту аудио
 #define   EXT_SYNC_SELECT_GPIO             GPIOB

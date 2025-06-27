@@ -343,7 +343,7 @@ void HAL_SPDIFRX_MspInit(SPDIFRX_HandleTypeDef* hspdifrx)
     /** Конфигурация GPIO для SPDIFRX1_IN0
     * PB7 ------> SPDIFRX1_IN0
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Pin = GPIO_PIN_7; //  контакт входа SPDIF 5 на плате PB7
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP; // Альтернативная функция с push-pull
     GPIO_InitStruct.Pull = GPIO_NOPULL;     // Без подтяжки
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH; // Высокая скорость
