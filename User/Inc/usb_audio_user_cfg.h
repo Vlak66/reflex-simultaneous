@@ -39,9 +39,9 @@
 #define USB_AUDIO_CONFIG_PLAY_CHANNEL_COUNT 0x02  // Стерео (2 канала)
 
 /* Разрешение аудио */
-/* Поддерживается 16/24 бита (другие разрешения требуют доработки) */
-#define USB_AUDIO_CONFIG_PLAY_RES_BIT     16  // Разрешение: 24 бита на семпл
-#define USB_AUDIO_CONFIG_PLAY_RES_BYTE    2   // Размер в байтах (24 бита = 3 байта)
+/* Поддерживается 16 бита (другие разрешения требуют доработки) */
+#define USB_AUDIO_CONFIG_PLAY_RES_BIT     16  // Разрешение: 16 бита на семпл
+#define USB_AUDIO_CONFIG_PLAY_RES_BYTE    2   // Размер в байтах (16 бита = 2 байта)
 
 /* Поддерживаемые частоты дискретизации (1 - включить, 0 - отключить) */
 #define USB_AUDIO_CONFIG_PLAY_USE_FREQ_192_K   1  // 192 кГц

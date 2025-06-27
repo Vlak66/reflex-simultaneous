@@ -182,7 +182,7 @@ void PlayDescriptionInit(AUDIO_Description_t *Description)
   Description->channels_map = CONFIG_2_0_STEREO_CHANNEL_MAP;
 
   // Установка разрешения по умолчанию
-  Description->resolution = CONFIG_RES_BYTE_24;
+  Description->resolution = CONFIG_RES_BYTE_16;
   // Установка частоты по умолчанию
   Description->frequency = CONFIG_2_0_FREQUENCY_DEFAULT;
   // Установка типа аудио
@@ -260,7 +260,7 @@ void OUTClk_Init(void)
    // Частота аудио по умолчанию 48 кГц
   uint32_t AudioFreq = CONFIG_2_0_FREQUENCY_DEFAULT;
   // Разрешение аудио по умолчанию
-  uint8_t AudioRes = CONFIG_RES_BIT_24;
+  uint8_t AudioRes = CONFIG_RES_BIT_16;
 
   // Для всех конфигураций синхронизации
   // кроме синхронизации от внешнего источника

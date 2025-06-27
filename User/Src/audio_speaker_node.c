@@ -25,7 +25,7 @@
 * multichannel audio stream support added, 2019.
 *
 * Изменен ЗАО «ЧИП и ДИП» для одновременной поддержки нескольких Alternate Settings
-* (16 бит и 24 бита);
+* (16 бит и 24 бита); 24 бита - удалили
 * добавлена поддержка многоканального аудио потока 2019.
 *
 *******************************************************************************
@@ -66,7 +66,6 @@ static int8_t  AUDIO_SpeakerStop( uint32_t node_handle);
 static int8_t  AUDIO_SpeakerMute( uint16_t channel_number,  uint8_t mute , uint32_t node_handle);
 static int8_t  AUDIO_SpeakerSetVolume( uint16_t channel_number,  int volume ,  uint32_t node_handle);
 static void    AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker);
-static void AUDIO_DoPadding_24_32(AUDIO_CircularBuffer_t *buff_src,  uint8_t *data_dest ,  int size);
 static int8_t  AUDIO_SpeakerStartReadCount( uint32_t node_handle);
 static uint16_t AUDIO_SpeakerGetLastReadCount( uint32_t node_handle);
 
@@ -260,17 +259,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
         AUDIO_SpeakerHandler->node.session_handle);
 
       /* подготовить следующий размер для инъекции */
-      if (AUDIO_SpeakerHandler->node.audio_description->resolution
-          == CONFIG_RES_BYTE_24)
-      {
-        AUDIO_SpeakerHandler->specific.data =
-          (AUDIO_SpeakerHandler->specific.offset) ?
-          AUDIO_SpeakerHandler->specific.alt_buffer :
-          AUDIO_SpeakerHandler->specific.alt_buffer +
-          AUDIO_SpeakerHandler->specific.data_size;
-        AUDIO_SpeakerHandler->specific.offset ^= 1;
-      }
-
       AUDIO_SpeakerHandler->specific.data_size =
         AUDIO_SpeakerHandler->specific.injection_size;
       read_length = AUDIO_SpeakerHandler->packet_length;
@@ -320,41 +308,34 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
       else
       {
         /* буфер уже подготовлен в половинной передаче */
-        if (AUDIO_SpeakerHandler->node.audio_description->
-            resolution == CONFIG_RES_BYTE_24)
-        {
-          AUDIO_DoPadding_24_32(AUDIO_SpeakerHandler->buf,
-            AUDIO_SpeakerHandler->specific.data, read_length);
-        }
-        else
-        {
-          AUDIO_SpeakerHandler->specific.data =
-            AUDIO_SpeakerHandler->buf->data +
-            AUDIO_SpeakerHandler->buf->rd_ptr;
+
+        AUDIO_SpeakerHandler->specific.data =
+          AUDIO_SpeakerHandler->buf->data +
+          AUDIO_SpeakerHandler->buf->rd_ptr;
 #if USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K
-          if ((AUDIO_SpeakerHandler->node.audio_description->
-               frequency == USB_AUDIO_CONFIG_FREQ_44_1_K) ||
-              (AUDIO_SpeakerHandler->node.audio_description->
-               frequency == USB_AUDIO_CONFIG_FREQ_88_2_K) ||
-              (AUDIO_SpeakerHandler->node.audio_description->
-               frequency == USB_AUDIO_CONFIG_FREQ_176_4_K))
+        if ((AUDIO_SpeakerHandler->node.audio_description->
+              frequency == USB_AUDIO_CONFIG_FREQ_44_1_K) ||
+            (AUDIO_SpeakerHandler->node.audio_description->
+              frequency == USB_AUDIO_CONFIG_FREQ_88_2_K) ||
+            (AUDIO_SpeakerHandler->node.audio_description->
+              frequency == USB_AUDIO_CONFIG_FREQ_176_4_K))
+        {
+          uint16_t d = AUDIO_SpeakerHandler->buf->size -
+                        AUDIO_SpeakerHandler->buf->rd_ptr;
+          if (d < AUDIO_SpeakerHandler->specific.data_size)
           {
-            uint16_t d = AUDIO_SpeakerHandler->buf->size -
-                         AUDIO_SpeakerHandler->buf->rd_ptr;
-            if (d < AUDIO_SpeakerHandler->specific.data_size)
-            {
-              memcpy(AUDIO_SpeakerHandler->specific.alt_buffer,
-                AUDIO_SpeakerHandler->buf->data +
-                AUDIO_SpeakerHandler->buf->rd_ptr, d);
-              memcpy(AUDIO_SpeakerHandler->specific.alt_buffer + d,
-                AUDIO_SpeakerHandler->buf->data,
-                AUDIO_SpeakerHandler->specific.data_size - d);
-              AUDIO_SpeakerHandler->specific.data =
-                AUDIO_SpeakerHandler->specific.alt_buffer;
-            }
+            memcpy(AUDIO_SpeakerHandler->specific.alt_buffer,
+              AUDIO_SpeakerHandler->buf->data +
+              AUDIO_SpeakerHandler->buf->rd_ptr, d);
+            memcpy(AUDIO_SpeakerHandler->specific.alt_buffer + d,
+              AUDIO_SpeakerHandler->buf->data,
+              AUDIO_SpeakerHandler->specific.data_size - d);
+            AUDIO_SpeakerHandler->specific.data =
+              AUDIO_SpeakerHandler->specific.alt_buffer;
           }
-#endif /* USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K */
         }
+#endif /* USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K */
+
 
         if (AUDIO_SpeakerHandler->SpeakerPrepareData != 0)
         {
@@ -482,19 +463,6 @@ static void  AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker)
   speaker->specific.double_buff = 0;
   speaker->specific.offset = 0;
 
-  // Проверяем, если разрешение 24 бита
-  if (speaker->node.audio_description->resolution == CONFIG_RES_BYTE_24)
-  {
-    // Устанавливаем размер инъекции для 24-битного разрешения
-    speaker->specific.injection_size = AUDIO_MS_PACKET_SIZE( \
-        speaker->node.audio_description->frequency, \
-        speaker->node.audio_description->channels_count, \
-        4);
-    speaker->specific.double_buff = 1; // Включаем двойной буфер
-    // Устанавливаем размер половины альтернативного буфера
-    speaker->specific.alt_buf_half_size = speaker->specific.injection_size;
-  }
-
 #if USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K
   if((speaker->node.audio_description->frequency == USB_AUDIO_CONFIG_FREQ_44_1_K)
   || (speaker->node.audio_description->frequency == USB_AUDIO_CONFIG_FREQ_88_2_K)
@@ -517,13 +485,6 @@ static void  AUDIO_SpeakerInitInjectionsParams( AUDIO_SpeakerNode_t* speaker)
         speaker->node.audio_description->channels_count);
     } else {
       speaker->specific.alt_buf_half_size = 712;
-    }
-
-    // Если разрешение 24 бита, обновляем размер половины альтернативного буфера
-    if (speaker->node.audio_description->resolution == CONFIG_RES_BYTE_24) {
-      speaker->specific.alt_buf_half_size =
-        speaker->specific.injection_size +
-        (4 * speaker->node.audio_description->channels_count);
     }
   }
 #endif /* USB_AUDIO_CONFIG_PLAY_USE_FREQ_44_1_K*/
@@ -562,38 +523,6 @@ static int8_t  AUDIO_SpeakerSetVolume( uint16_t channel_number,  int volume_db_2
   return 0;
 }
 
-/**
-  * @brief  AUDIO_DoPadding_24_32
-  *         дополнение 24-битного образца до 32-битного, добавляя нули.
-  * @param  buff_src(IN):
-  * @param  data_dest(OUT):
-  * @param  size(IN):
-  * @retval None
-  */
- /**
-  * @brief  AUDIO_DoPadding_24_32
-  *         Функция для дополнения 24-битного образца до 32-битного, добавляя нули.
-  * @param  buff_src(IN): указатель на источник данных (круговой буфер).
-  * @param  data_dest(OUT): указатель на массив, куда будут записаны дополненные данные.
-  * @param  size(IN): количество байт, которые нужно дополнить.
-  * @retval None
-  */
- static void AUDIO_DoPadding_24_32(AUDIO_CircularBuffer_t *buff_src,  uint8_t *data_dest ,  int size)
- {
-   int k = 0, j = buff_src->rd_ptr; // Инициализация индексов для записи и чтения
-   for(int i = 0; i < size; i += 3) // Проход по каждому 24-битному образцу
-   {
-     data_dest[k++] = 0; // Добавление нуля для дополнения до 32 бит
-     for(int p = 0; p < 3; p++) // Копирование 3 байт из источника
-     {
-       if(j == buff_src->size) // Проверка на выход за пределы буфера
-       {
-         j = 0; // Сброс индекса, если достигнут конец буфера
-       }
-       data_dest[k++] = buff_src->data[j++]; // Копирование байта из буфера
-     }
-   }
- }
 
  /**
   * @brief  AUDIO_SpeakerStartReadCount

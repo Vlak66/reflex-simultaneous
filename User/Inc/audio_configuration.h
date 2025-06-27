@@ -26,7 +26,6 @@
  * @brief Альтернативные режимы настройки аудио интерфейса по битности
  */
 #define ALTERNATE_SETTING_16_BIT               1
-#define ALTERNATE_SETTING_24_BIT               2
 
 /**
  * @brief Конфигурации разрядности аудиосигнала
@@ -34,18 +33,13 @@
 #define CONFIG_RES_BIT_16                      16   /*!< 16 битов на отсчёт */
 #define CONFIG_RES_BYTE_16                     2    /*!< 2 байта на отсчёт */
 
-#define CONFIG_RES_BIT_24                      24   /*!< 24 бита на отсчёт */
-#define CONFIG_RES_BYTE_24                     3    /*!< 3 байта на отсчёт */
-
 /**
  * @brief Конфигурация стереофонического звука (2.0)
  */
 #define CONFIG_2_0_STEREO_CHANNEL_COUNT        2     /*!< Кол-во каналов: 2 */
 #define CONFIG_2_0_STEREO_CHANNEL_MAP          0x03  /*!< Карта каналов: FL (фронтальный левый), FR (фронтальный правый) */
 #define CONFIG_2_0_STEREO_16_BIT_FREQ_COUNT    6     /*!< Поддерживаемые частоты при 16 битах: 6 вариантов */
-#define CONFIG_2_0_STEREO_24_BIT_FREQ_COUNT    4     /*!< Поддерживаемые частоты при 24 битах: 4 варианта */
 #define CONFIG_2_0_STEREO_16_BIT_MAX_PACKET    ((192 + 2) * CONFIG_2_0_STEREO_CHANNEL_COUNT * CONFIG_RES_BYTE_16)
-#define CONFIG_2_0_STEREO_24_BIT_MAX_PACKET    ((96 + 2) * CONFIG_2_0_STEREO_CHANNEL_COUNT * CONFIG_RES_BYTE_24)
 
 #define CONFIG_2_0_SAI_COUNT                   1     /*!< Используется один SAI интерфейс */
 #define CONFIG_2_0_FREQUENCY_DEFAULT           USB_AUDIO_CONFIG_FREQ_48_K /*!< Частота по умолчанию: 48 кГц */
