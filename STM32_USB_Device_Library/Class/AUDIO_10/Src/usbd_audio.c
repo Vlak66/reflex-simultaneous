@@ -639,7 +639,6 @@ uint8_t  USBD_AUDIO_DeInit (USBD_HandleTypeDef *pdev,
  uint8_t  USBD_AUDIO_EP0_RxReady (USBD_HandleTypeDef *pdev)
  {
    USBD_AUDIO_HandleTypeDef   *haudio;
-   uint16_t *tmpdata;
  
    haudio = (USBD_AUDIO_HandleTypeDef*) pdev->pClassData;
  
@@ -907,7 +906,6 @@ uint8_t  USBD_AUDIO_DeInit (USBD_HandleTypeDef *pdev,
    USBD_AUDIO_HandleTypeDef   *haudio;
    USBD_AUDIO_ControlTypeDef * ctl = 0;
    uint8_t unit_id,control_selector;
-   uint16_t *tmpdata = NULL;
  
    haudio = (USBD_AUDIO_HandleTypeDef*) pdev->pClassData;
  
