@@ -243,24 +243,21 @@ void SAI_Init_I2S(SAI_Block_TypeDef *SAIBlock, uint8_t AudioResolution, uint8_t 
   // 2. Сброс битов разрешения данных (DS) перед настройкой
   SAIBlock->CR1 &= ~(SAI_xCR1_DS_2 | SAI_xCR1_DS_1 | SAI_xCR1_DS_0);
 
-  // 3. Конфигурация в зависимости от разрешения и режима BCLK //AudioResolution == 16
+  // Конфигурация для 16 бит и режима "BCLK зависит от Fs и разрешения"
+  SAIBlock->FRCR |= (0x0F << SAI_xFRCR_FSALL_Pos) | (0x1F << SAI_xFRCR_FRL_Pos);
+  // FRL = 31 (0x1F) → 32 такта на кадр (I2S стандарт для 16 бит)
+  // FSALL = 15 (0x0F) → 16 тактов активного FS (половина кадра)
+
   SAIBlock->CR1 |= SAI_xCR1_DS_2; // DS = 0b100 → 16 бит данных
 
-  if(BCLKMode == BCLK_Fs_RES_DEPENDENT){
-    // Для 16 бит и режима "BCLK зависит от Fs и разрешения"
-    SAIBlock->FRCR |= (0x0F << SAI_xFRCR_FSALL_Pos) | (0x1F << SAI_xFRCR_FRL_Pos);
-    // FRL = 31 (0x1F) → 32 такта на кадр (I2S стандарт для 16 бит)
-    // FSALL = 15 (0x0F) → 16 тактов активного FS (половина кадра)
-    SAIBlock->SLOTR =
-      (((1 << 0) | (1 << 1)) << SAI_xSLOTR_SLOTEN_Pos) | // Включены слоты 0 и 1 (стерео)
-      (0x01 << SAI_xSLOTR_NBSLOT_Pos) |                  // 2 слота (0x01 = 1, но счет с нуля → 2 слота)
-      SAI_xSLOTR_SLOTSZ_0;                               // Размер слота = 16 бит
+  SAIBlock->SLOTR =
+    (((1 << 0) | (1 << 1)) << SAI_xSLOTR_SLOTEN_Pos) | // Включены слоты 0 и 1 (стерео)
+    (0x01 << SAI_xSLOTR_NBSLOT_Pos) |                  // 2 слота (0x01 = 1, но счет с нуля → 2 слота)
+    SAI_xSLOTR_SLOTSZ_0;                               // Размер слота = 16 бит
 
-  }else{
-    SAIBlock->FRCR |= (0x1F << SAI_xFRCR_FSALL_Pos) | (0x3F << SAI_xFRCR_FRL_Pos);
-    SAIBlock->SLOTR = (((1 << 0) | (1 << 2)) << SAI_xSLOTR_SLOTEN_Pos) | (0x03 << SAI_xSLOTR_NBSLOT_Pos) | SAI_xSLOTR_SLOTSZ_0;
-
-  }
+  // 4. Включение выходного драйвера (OUTDRIV)
+  SAIBlock->CR1 |= SAI_xCR1_OUTDRIV;
+}
 
 
 //------------------------------------------------------------------------------
