@@ -7,7 +7,10 @@
         "usbd_audio.h": "c",
         "audio_node.h": "c",
         "usbd_ioreq.h": "c",
-        "usbd_def.h": "c"
+        "usbd_def.h": "c",
+        "usb_audio_constants.h": "c",
+        "stdint.h": "c",
+        "cstdint": "c"
     },
     "makefile.configureOnOpen": false
 }

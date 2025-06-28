@@ -57,8 +57,9 @@ static int8_t  USB_AudioPlaybackSessionCallback(AUDIO_SessionEvent_t  event,
 static uint32_t   USB_AudioPlaybackGetFeedback( uint32_t session_handle );
 static void  AUDIO_USB_Session_Sof_Received(uint32_t session_handle );
 
-
 static void UpdateInputNodePackLength(void);
+
+
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -66,6 +67,7 @@ static void UpdateInputNodePackLength(void);
 static AUDIO_USBInputOutputNode_t PlaybackUSBInputNode;
 static AUDIO_Description_t PlaybackAudioDescription;
 static AUDIO_USB_CF_NodeTypeDef PlaybackFeatureUnitNode;
+static AUDIO_UpsampleNode_t PlaybackUpsampleNode;
 static AUDIO_SpeakerNode_t PlaybackSpeakerOutputNode;
 /* Синхронизация воспроизведения: оценка частоты */
 static uint8_t PlaybackSynchroFirstSofReceived = 0;
@@ -115,9 +117,25 @@ static uint32_t PlaybackSynchroEstimatedCodecFrequency = 0;
 
   USB_AudioStreamingFeatureUnitInit( controls_desc,  &controller_defaults,  CONFIG_UNIT_FEATURE_ID, (uint32_t)&PlaybackFeatureUnitNode);
   (*control_count)++;
-  PlaybackUSBInputNode.node.next = (AUDIO_Node_t*)&PlaybackFeatureUnitNode;
+
   AUDIO_SpeakerInit(&PlaybackAudioDescription, &play_session->session, (uint32_t)&PlaybackSpeakerOutputNode);
-  PlaybackFeatureUnitNode.node.next = (AUDIO_Node_t*)&PlaybackSpeakerOutputNode;
+
+  uint32_t frequency = speaker->node.audio_description->frequency;
+  uint32_t upsample_factor = GetUpsampleFactor( frequency );
+
+  if ( upsample_factor > 1 && IsUpsamplingEnabled() ) {
+      AUDIO_UpsampleNodeInit(&PlaybackUpsampleNode, &PlaybackAudioDescription, upsample_factor);
+
+      PlaybackUSBInputNode.node.next = (AUDIO_Node_t*)&PlaybackFeatureUnitNode;
+      PlaybackFeatureUnitNode.node.next = (AUDIO_Node_t*)&PlaybackUpsampleNode;
+      PlaybackUpsampleNode.node.next = (AUDIO_Node_t*)&PlaybackSpeakerOutputNode;
+      
+  } else {
+      PlaybackUSBInputNode.node.next = (AUDIO_Node_t*)&PlaybackFeatureUnitNode;
+      PlaybackFeatureUnitNode.node.next = (AUDIO_Node_t*)&PlaybackSpeakerOutputNode;
+  }
+
+
 
 /* инициализация параметров синхронизации */
 

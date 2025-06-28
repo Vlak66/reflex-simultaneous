@@ -17,6 +17,9 @@ static uint8_t SyncMode = 0; // Режим синхронизации
 static uint8_t BclkFsRatioMode = BCLK_Fs_RES_DEPENDENT; // Соотношение BCLK к Fs
 static uint8_t ChannelsPairs = 1; // Пары каналов
 
+// UPSAMPLING
+static uint8_t UpsamplingEnabled = 0;    // Флаг включения апсемплинга // UpsamplingEnabled g_is_upsampling_enabled
+
 void SetAudioConfigDependedFuncs(AUDIO_SpeakerNode_t *speaker)
 {
   // Установка функции воспроизведения
@@ -251,6 +254,17 @@ void AudioConfig_Init(void)
   if ((BCLK_Fs_RATIO_GPIO->IDR & (1 << BCLK_Fs_RATIO_PIN)) != (1 << BCLK_Fs_RATIO_PIN))
     // Установка фиксированного соотношения BCLK к Fs
     BclkFsRatioMode = BCLK_Fs_FIXED;
+
+
+    // UPSAMPLING ---- ЧТЕНИЕ СОСТОЯНИЯ КОНФИГУРАЦИОННЫХ ПИНОВ ДЛЯ АПСЕМПЛИНГА ----
+  // Проверка UPSAMPLING_ENABLE_PIN (CONFIG_2_PIN)
+  // Если пин замкнут на землю (LOW), включаем апсемплинг
+  if ((CONFIG_GPIO->IDR & (1 << UPSAMPLING_ENABLE_PIN)) != (1 << UPSAMPLING_ENABLE_PIN))
+  {
+      UpsamplingEnabled = 1;
+  } else {
+      UpsamplingEnabled = 0; // Сбрасываем флаг, если джампер снят
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -367,3 +381,36 @@ void ConfigGPIOs_Init(void)
 
 }
 
+// Функция для проверки, включен ли апсемплинг
+uint8_t IsUpsamplingEnabled(void)
+{
+    return UpsamplingEnabled;
+}
+
+// получение коэффициента апсемплинга
+uint32_t GetUpsampleFactor(uint32_t input_freq) {
+    uint32_t factor = 1;
+    uint32_t output_freq;
+    if (input_freq == 0){
+      return factor;
+    }
+    if (
+        (input_freq == USB_AUDIO_CONFIG_FREQ_44_1_K) ||
+        (input_freq == USB_AUDIO_CONFIG_FREQ_88_2_K) ||
+        (input_freq == USB_AUDIO_CONFIG_FREQ_176_4_K)
+    ) {
+        output_freq = UPSAMPLE_FREQ_44100;
+    } else {
+        output_freq = UPSAMPLE_FREQ_48000;
+    }
+
+    if (input_freq == 0) return 0; // защита от деления на ноль
+    if (output_freq % input_freq != 0) return 0; // только целочисленный апсемплинг
+
+    factor = output_freq / input_freq;
+    if( factor < 1 ){
+      factor = 1;
+    }
+
+    return factor;
+}

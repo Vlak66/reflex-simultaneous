@@ -57,6 +57,8 @@
 #define USB_AUDIO_CONFIG_SAI_MAX_COUNT         CONFIG_2_0_SAI_COUNT
 #define USB_AUDIO_CONFIG_PLAY_BUFFER_SIZE      ((1024 * 10) * USB_AUDIO_CONFIG_SAI_MAX_COUNT) /*!< Размер буфера воспроизведения */
 
+#define UPSAMPLE_FREQ_48000 USB_AUDIO_CONFIG_FREQ_192_K /*!< Частота апсемплинга для кратного 48000 */
+#define UPSAMPLE_FREQ_44100 USB_AUDIO_CONFIG_FREQ_176_4_K /*!< Частота апсемплинга для кратного 44100 */
 
 /**
  * @brief Типы аудиоконфигураций устройства
@@ -93,6 +95,7 @@ void AudioConfig_Init(void); /*!< Инициализация аудиоконф�
 void OUTClk_Init(void); /*!< Инициализация тактового выхода */
 void ExtPowerDisable(void); /*!< Отключение внешнего питания */
 void ConfigGPIOs_Init(void); /*!< Инициализация GPIO для аудиорежимов */
+uint8_t GetUpsampleFactor(uint32_t input_freq); /*!< получение коэффициента апсемплинга */
 
 #endif // __AUDIO_CONFIGURATION_H
 
